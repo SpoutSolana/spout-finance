@@ -19,4 +19,9 @@ pub mod spoutsolana {
     pub fn create_asset(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
         create_asset::handler(ctx, args)
     }
+
+    pub fn verify_kyc(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
+        verify_kyc::handler(ctx, args)
+    }
+
 }

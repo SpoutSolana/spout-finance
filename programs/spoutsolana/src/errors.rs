@@ -8,6 +8,12 @@ pub enum ErrorCode {
     NameTooLong,
     #[msg("Symbol too long")] 
     SymbolTooLong,
+    #[msg("Schema ID too long")] 
+    SchemaIdTooLong,
+    #[msg("KYC verification failed")] 
+    KycVerificationFailed,
+    #[msg("KYC required but not provided")] 
+    KycRequired,
 }
 
 

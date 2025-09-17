@@ -1,13 +1,17 @@
 use anchor_lang::prelude::*;
 
 use crate::errors::ErrorCode;
-use crate::state::{Asset, Config, CreateAssetArgs, MAX_NAME_LEN, MAX_SYMBOL_LEN};
+use crate::state::{Asset, Config, CreateAssetArgs, MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_KYC_SCHEMA_ID_LEN};
 
 pub fn handler(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
     require_keys_eq!(ctx.accounts.config.authority, ctx.accounts.authority.key(), ErrorCode::Unauthorized);
 
     require!(args.name.len() <= MAX_NAME_LEN, ErrorCode::NameTooLong);
     require!(args.symbol.len() <= MAX_SYMBOL_LEN, ErrorCode::SymbolTooLong);
+    
+    if let Some(ref schema_id) = args.kyc_schema_id {
+        require!(schema_id.len() <= MAX_KYC_SCHEMA_ID_LEN, ErrorCode::SchemaIdTooLong);
+    }
 
     let asset = &mut ctx.accounts.asset;
     asset.mint = ctx.accounts.mint.key();
@@ -15,6 +19,8 @@ pub fn handler(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
     asset.name = args.name;
     asset.symbol = args.symbol;
     asset.total_supply = args.total_supply;
+    asset.kyc_required = args.kyc_required;
+    asset.kyc_schema_id = args.kyc_schema_id;
     asset.bump = ctx.bumps.asset;
     Ok(())
 }
@@ -31,7 +37,7 @@ pub struct CreateAsset<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 32 + 4 + MAX_NAME_LEN + 4 + MAX_SYMBOL_LEN + 8 + 1,
+        space = 8 + 32 + 32 + 4 + MAX_NAME_LEN + 4 + MAX_SYMBOL_LEN + 8 + 1 + 1 + (1 + 4 + MAX_KYC_SCHEMA_ID_LEN),
         seeds = [Asset::SEED_PREFIX, mint.key().as_ref()],
         bump
     )]

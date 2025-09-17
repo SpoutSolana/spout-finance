@@ -34,7 +34,13 @@ describe("spoutsolana", () => {
     );
 
     await program.methods
-      .createAsset({ name: "Test Bond", symbol: "TBND", totalSupply: new BN(1_000_000) })
+      .createAsset({ 
+        name: "Test Bond", 
+        symbol: "TBND", 
+        totalSupply: new BN(1_000_000),
+        kycRequired: true,
+        kycSchemaId: "rwa_kyc_v1"
+      })
       .accounts({
         config: configPda,
         asset: assetPda,
@@ -44,6 +50,19 @@ describe("spoutsolana", () => {
         systemProgram: SystemProgram.programId,
       })
       .signers([])
+      .rpc();
+
+    // Test KYC verification
+    await program.methods
+      .verifyKyc({
+        holder: payer.publicKey,
+        schemaId: "rwa_kyc_v1"
+      })
+      .accounts({
+        asset: assetPda,
+        holder: payer.publicKey,
+        sasProgram: PublicKey.default,
+      })
       .rpc();
   });
 });
