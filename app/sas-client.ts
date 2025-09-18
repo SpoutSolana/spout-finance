@@ -1,4 +1,5 @@
-import { Connection, PublicKey, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey } from '@solana/web3.js';
+import * as anchor from '@coral-xyz/anchor';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
 import { Spoutsolana } from '../target/types/spoutsolana';
 
@@ -71,6 +72,13 @@ export class SasClient {
     holder: PublicKey
   ): Promise<boolean> {
     try {
+      // Load config to get SAS program id
+      const [configPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('config')],
+        this.program.programId
+      );
+      const config = await this.program.account.config.fetch(configPda);
+
       // Get the asset account
       const [assetPda] = PublicKey.findProgramAddressSync(
         [Buffer.from('asset'), assetMint.toBuffer()],
@@ -96,7 +104,7 @@ export class SasClient {
         .accounts({
           asset: assetPda,
           holder,
-          sasProgram: PublicKey.default, // Placeholder
+          sasProgram: new PublicKey(config.sasProgram),
         })
         .rpc();
 
