@@ -4,6 +4,8 @@ pub const MAX_NAME_LEN: usize = 64;
 pub const MAX_SYMBOL_LEN: usize = 16;
 pub const MAX_KYC_SCHEMA_ID_LEN: usize = 64;
 
+
+// Under accounts all the state storage is defined
 #[account]
 pub struct Config {
     pub authority: Pubkey,
@@ -33,6 +35,7 @@ impl Asset {
 
 // The structs below define instruction argument payloads used by handlers in `lib.rs`.
 // They are serialized/deserialized via Anchor using #[derive(AnchorSerialize, AnchorDeserialize, Clone)].
+// This data is all put in with the transaction and not stored on-chain.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct InitializeArgs {
     pub authority: Pubkey,

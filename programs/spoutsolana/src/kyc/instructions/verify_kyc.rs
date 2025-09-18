@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::errors::ErrorCode;
+use crate::kyc::assert_holder_is_kyc_verified;
 use crate::state::{Asset, Config, VerifyKycArgs};
 
 pub fn handler(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
@@ -11,32 +12,26 @@ pub fn handler(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
     require!(asset.kyc_required, ErrorCode::KycRequired);
     require!(asset.kyc_schema_id.is_some(), ErrorCode::KycRequired);
     
-    // Verify the holder has a valid KYC attestation
-    // This would integrate with SAS to verify the attestation
-    // For now, we'll implement a basic check structure
-    
-    // TODO: Integrate with SAS program to verify attestation
-    // The verification would check:
-    // 1. The holder has an attestation for the specified schema
-    // 2. The attestation is valid and not expired
-    // 3. The attestation meets the asset's KYC requirements
-    
-    msg!("KYC verification for holder: {}", args.holder);
-    msg!("Schema ID: {}", args.schema_id);
+    // Verify the holder has a valid KYC attestation via SAS (encapsulated helper)
+    assert_holder_is_kyc_verified(
+        &ctx.accounts.config,
+        &ctx.accounts.sas_program.to_account_info(),
+        &ctx.accounts.holder.to_account_info(),
+        &args.schema_id,
+        &ctx.accounts.credential.to_account_info(),
+        &ctx.accounts.schema.to_account_info(),
+    )?;
 
     // Ensure the provided schema matches the asset's configured schema
     let configured_schema = asset.kyc_schema_id.as_ref().unwrap();
     require!(configured_schema == &args.schema_id, ErrorCode::SchemaMismatch);
     
-    // Basic structural checks against SAS program ownership
-    require_keys_eq!(ctx.accounts.sas_program.key(), config.sas_program, ErrorCode::Unauthorized);
-    require_keys_eq!(ctx.accounts.credential.owner, config.sas_program, ErrorCode::KycVerificationFailed);
-    require_keys_eq!(ctx.accounts.schema.owner, config.sas_program, ErrorCode::KycVerificationFailed);
+    // Structural check: schema must match the asset requirement (already enforced above)
     
     Ok(())
 }
 
-#[derive(Accounts)]
+#[derive(Accounts)] // Input on-chain data as parameters for the handler function
 #[instruction(args: VerifyKycArgs)]
 pub struct VerifyKyc<'info> {
     #[account(
@@ -57,9 +52,21 @@ pub struct VerifyKyc<'info> {
     /// In real implementation, this would be the SAS program ID
     pub sas_program: UncheckedAccount<'info>,
 
-    /// CHECK: SAS credential account for the holder (owner must be SAS program)
+    /// CHECK: SAS credential PDA for (holder, schema_id) under SAS program
+    /// seeds: [b"credential", holder, schema_id]
+    #[account(
+        seeds = [b"credential", holder.key().as_ref(), args.schema_id.as_bytes()],
+        bump,
+        seeds::program = sas_program.key()
+    )]
     pub credential: UncheckedAccount<'info>,
 
-    /// CHECK: SAS schema account (owner must be SAS program)
+    /// CHECK: SAS schema PDA for (schema_id) under SAS program
+    /// seeds: [b"schema", schema_id]
+    #[account(
+        seeds = [b"schema", args.schema_id.as_bytes()],
+        bump,
+        seeds::program = sas_program.key()
+    )]
     pub schema: UncheckedAccount<'info>,
 }
