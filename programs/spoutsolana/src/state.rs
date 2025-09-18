@@ -35,7 +35,7 @@ impl Asset {
 
 // The structs below define instruction argument payloads used by handlers in `lib.rs`.
 // They are serialized/deserialized via Anchor using #[derive(AnchorSerialize, AnchorDeserialize, Clone)].
-// This data is all put in with the transaction and not stored on-chain.
+// These values are provided in the transaction; they are not persisted unless your instruction writes them to accounts.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct InitializeArgs {
     pub authority: Pubkey,
