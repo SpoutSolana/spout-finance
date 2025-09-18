@@ -14,7 +14,7 @@ pub struct Config {
 impl Config {
     pub const SEED: &'static [u8] = b"config";
 }
-
+// Under accounts all the state storage is defined
 #[account]
 pub struct Asset {
     pub mint: Pubkey,
@@ -31,7 +31,8 @@ impl Asset {
     pub const SEED_PREFIX: &'static [u8] = b"asset";
 }
 
-// Everything under #Derive can be seen as input parameters for the instruction functions also described in the lib file 
+// The structs below define instruction argument payloads used by handlers in `lib.rs`.
+// They are serialized/deserialized via Anchor using #[derive(AnchorSerialize, AnchorDeserialize, Clone)].
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct InitializeArgs {
     pub authority: Pubkey,

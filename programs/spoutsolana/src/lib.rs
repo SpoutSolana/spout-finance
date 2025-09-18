@@ -8,6 +8,10 @@ pub mod state;
 
 use kyc::*;
 
+// In calls like `verify_kyc::handler(...)`, `verify_kyc` is a Rust module path.
+// It usually comes from the file name and `pub mod` in `kyc/instructions/mod.rs`,
+// but you can alias it there without renaming the file. The instruction name itself
+// comes from the function in `#[program]` (e.g., `pub fn verify_kyc(...)`).
 #[program]
 pub mod spoutsolana {
     use super::*;
@@ -23,5 +27,4 @@ pub mod spoutsolana {
     pub fn verify_kyc(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
         verify_kyc::handler(ctx, args)
     }
-
 }
