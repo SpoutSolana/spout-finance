@@ -5,6 +5,7 @@ use crate::state::{Config, InitializeArgs};
 pub fn handler(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
     let config = &mut ctx.accounts.config;
     config.authority = args.authority;
+    config.sas_program = args.sas_program;
     config.bump = ctx.bumps.config;
     Ok(())
 }
@@ -14,7 +15,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + 32 + 1,
+        space = 8 + 32 + 32 + 1,
         seeds = [Config::SEED],
         bump
     )]

@@ -7,6 +7,7 @@ pub const MAX_KYC_SCHEMA_ID_LEN: usize = 64;
 #[account]
 pub struct Config {
     pub authority: Pubkey,
+    pub sas_program: Pubkey,
     pub bump: u8,
 }
 
@@ -30,9 +31,11 @@ impl Asset {
     pub const SEED_PREFIX: &'static [u8] = b"asset";
 }
 
+// Everything under #Derive can be seen as input parameters for the instruction functions also described in the lib file 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct InitializeArgs {
     pub authority: Pubkey,
+    pub sas_program: Pubkey,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]

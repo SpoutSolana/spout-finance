@@ -14,6 +14,8 @@ pub enum ErrorCode {
     KycVerificationFailed,
     #[msg("KYC required but not provided")] 
     KycRequired,
+    #[msg("Schema does not match asset's configured KYC schema")] 
+    SchemaMismatch,
 }
 
 

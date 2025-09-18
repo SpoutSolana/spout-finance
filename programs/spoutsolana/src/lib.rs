@@ -3,10 +3,10 @@ use anchor_lang::prelude::*;
 declare_id!("GpisZcCukL4xJjaeXJpUshVbrgzUojyGNHNAmorXj2Nx");
 
 pub mod errors;
-pub mod instructions;
+pub mod kyc;
 pub mod state;
 
-use instructions::*;
+use kyc::*;
 
 #[program]
 pub mod spoutsolana {

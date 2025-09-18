@@ -20,6 +20,5 @@ idl-build = ["anchor-lang/idl-build"]
 [dependencies]
 anchor-lang = "0.31.1"
 anchor-spl = "0.31.1"
-solana-attestation = "0.1.0"
-solana-attestation-service-client = "1.0.9"
+# SAS integration is via CPI using its program ID; no direct crate deps
 
