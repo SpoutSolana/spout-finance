@@ -95,16 +95,30 @@ export class SasClient {
         throw new Error('Asset requires KYC but no schema ID provided');
       }
 
+      // Derive SAS PDAs expected by on-chain constraints
+      const sasProgramPk = new PublicKey(config.sasProgram);
+      const [credentialPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('credential'), holder.toBuffer(), Buffer.from(assetAccount.kycSchemaId)],
+        sasProgramPk
+      );
+      const [schemaPda] = PublicKey.findProgramAddressSync(
+        [Buffer.from('schema'), Buffer.from(assetAccount.kycSchemaId)],
+        sasProgramPk
+      );
+
       // Call our program's verify_kyc instruction
-      await this.program.methods
+      await (this.program as any).methods
         .verifyKyc({
           holder,
           schemaId: assetAccount.kycSchemaId,
         })
         .accounts({
+          config: configPda,
           asset: assetPda,
           holder,
-          sasProgram: new PublicKey(config.sasProgram),
+          sasProgram: sasProgramPk,
+          credential: credentialPda,
+          schema: schemaPda,
         })
         .rpc();
 
