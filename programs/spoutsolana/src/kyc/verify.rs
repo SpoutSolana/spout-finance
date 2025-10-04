@@ -18,8 +18,8 @@ pub fn assert_holder_is_kyc_verified<'info>(
 
     // TODO: Replace with SAS-documented PDA seeds and verification CPI.
     // For now, enforce ownership by SAS and basic schema match left to caller.
-    require_keys_eq!(credential.owner, config.sas_program, ErrorCode::KycVerificationFailed);
-    require_keys_eq!(schema.owner, config.sas_program, ErrorCode::KycVerificationFailed);
+    require_keys_eq!(*credential.owner, config.sas_program, ErrorCode::KycVerificationFailed);
+    require_keys_eq!(*schema.owner, config.sas_program, ErrorCode::KycVerificationFailed);
 
     // In the real implementation, derive credential PDA like:
     // let (expected_cred, _bump) = Pubkey::find_program_address(

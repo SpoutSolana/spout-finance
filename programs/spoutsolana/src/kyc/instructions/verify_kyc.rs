@@ -6,7 +6,6 @@ use crate::state::{Asset, Config, VerifyKycArgs};
 
 pub fn handler(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
     let asset = &ctx.accounts.asset;
-    let config = &ctx.accounts.config;
     
     // Check if KYC is required for this asset and that a schema is configured
     require!(asset.kyc_required, ErrorCode::KycRequired);
@@ -46,6 +45,7 @@ pub struct VerifyKyc<'info> {
     pub asset: Account<'info, Asset>,
     
     /// CHECK: The holder whose KYC we're verifying
+    // UncheckedAccount is used when we don't need to validate the account
     pub holder: UncheckedAccount<'info>,
     
     /// CHECK: SAS program for attestation verification

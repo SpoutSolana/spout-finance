@@ -8,9 +8,9 @@ pub const MAX_KYC_SCHEMA_ID_LEN: usize = 64;
 // Under accounts all the state storage is defined
 #[account]
 pub struct Config {
-    pub authority: Pubkey,
-    pub sas_program: Pubkey,
-    pub bump: u8,
+    pub authority: Pubkey, // Trusted issuer of the assets created 
+    pub sas_program: Pubkey, // SAS program id
+    pub bump: u8, // Bump seed for the config account
 }
 
 impl Config {
