@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-
 use crate::errors::ErrorCode;
 use crate::state::{Asset, Config, CreateAssetArgs, MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_KYC_SCHEMA_ID_LEN};
 
@@ -51,5 +50,3 @@ pub struct CreateAsset<'info> {
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
-
-

@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
 
 use crate::errors::ErrorCode;
-use crate::state::{Config};
+use crate::state::{Config, SasCredential, SasSchema};
 
-// Placeholder SAS PDA derivations until SAS docs are wired.
-// Keep this helper encapsulated so we can swap in official seeds/layout and CPI easily.
+// SAS credential verification helper
+// This function verifies that a holder has a valid KYC credential from the SAS program
 pub fn assert_holder_is_kyc_verified<'info>(
     config: &Account<'info, Config>,
     sas_program: &AccountInfo<'info>,
@@ -16,20 +16,57 @@ pub fn assert_holder_is_kyc_verified<'info>(
     // Ensure we are checking against the configured SAS program
     require_keys_eq!(sas_program.key(), config.sas_program, ErrorCode::Unauthorized);
 
-    // TODO: Replace with SAS-documented PDA seeds and verification CPI.
-    // For now, enforce ownership by SAS and basic schema match left to caller.
+    // Verify that both credential and schema accounts are owned by the SAS program
     require_keys_eq!(*credential.owner, config.sas_program, ErrorCode::KycVerificationFailed);
     require_keys_eq!(*schema.owner, config.sas_program, ErrorCode::KycVerificationFailed);
 
-    // In the real implementation, derive credential PDA like:
-    // let (expected_cred, _bump) = Pubkey::find_program_address(
-    //     &[b"credential", holder.key.as_ref(), schema_id.as_bytes()], &config.sas_program);
-    // require_keys_eq!(credential.key(), expected_cred, ErrorCode::KycVerificationFailed);
-    // Then deserialize credential data per SAS layout and check validity, expiry, revocation.
+    // Derive expected credential PDA using SAS standard seeds
+    let (expected_credential_pda, _bump) = Pubkey::find_program_address(
+        &[SasCredential::SEED_PREFIX, holder.key().as_ref(), schema_id.as_bytes()], 
+        &config.sas_program
+    );
+    require_keys_eq!(credential.key(), expected_credential_pda, ErrorCode::KycVerificationFailed);
 
-    // Optionally: call SAS CPI verify if provided by SAS API.
+    // Derive expected schema PDA using SAS standard seeds
+    let (expected_schema_pda, _bump) = Pubkey::find_program_address(
+        &[SasSchema::SEED_PREFIX, schema_id.as_bytes()], 
+        &config.sas_program
+    );
+    require_keys_eq!(schema.key(), expected_schema_pda, ErrorCode::KycVerificationFailed);
+
+    // TODO: Add CPI call to SAS program for additional verification if SAS provides a verify instruction
+    // This would involve calling the SAS program's verify instruction via CPI
+    
+    // TODO: Deserialize credential data and check:
+    // - Credential is not expired
+    // - Credential is not revoked
+    // - Credential is valid for the specified schema
+    // - Holder matches the credential subject
 
     Ok(())
+}
+
+// Helper function to derive SAS credential PDA
+pub fn derive_sas_credential_pda(
+    sas_program: &Pubkey,
+    holder: &Pubkey,
+    schema_id: &str,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[SasCredential::SEED_PREFIX, holder.as_ref(), schema_id.as_bytes()],
+        sas_program,
+    )
+}
+
+// Helper function to derive SAS schema PDA
+pub fn derive_sas_schema_pda(
+    sas_program: &Pubkey,
+    schema_id: &str,
+) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[SasSchema::SEED_PREFIX, schema_id.as_bytes()],
+        sas_program,
+    )
 }
 
 

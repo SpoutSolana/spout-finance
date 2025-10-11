@@ -42,25 +42,37 @@ export class SasClient {
 
   /**
    * Create a KYC schema for RWA assets
+   * This would call the SAS program to create a schema PDA
    */
   async createKycSchema(schema: KycSchema): Promise<string> {
-    // This would integrate with SAS to create a schema
-    // For now, return a mock schema ID
+    // TODO: Implement actual SAS schema creation
+    // This would involve calling the SAS program's create_schema instruction
+    // The schema PDA would be derived as: [b"schema", schema_id]
+    
     console.log('Creating KYC schema:', schema);
+    
+    // For now, return a mock schema ID
+    // In real implementation, this would be the actual schema ID used in SAS
     return `kyc_schema_${Date.now()}`;
   }
 
   /**
    * Issue a KYC attestation to a user
+   * This would call the SAS program to create a credential PDA
    */
   async issueKycAttestation(
     holder: PublicKey,
     schemaId: string,
     kycData: Record<string, any>
   ): Promise<string> {
-    // This would integrate with SAS to issue an attestation
-    // For now, return a mock attestation ID
+    // TODO: Implement actual SAS credential issuance
+    // This would involve calling the SAS program's issue_credential instruction
+    // The credential PDA would be derived as: [b"credential", holder, schema_id]
+    
     console.log('Issuing KYC attestation:', { holder, schemaId, kycData });
+    
+    // For now, return a mock attestation ID
+    // In real implementation, this would be the transaction signature from SAS
     return `attestation_${Date.now()}`;
   }
 
@@ -175,6 +187,60 @@ export class SasClient {
         authority: this.provider.wallet.publicKey,
         payer: this.provider.wallet.publicKey,
         systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+
+    return tx;
+  }
+
+  /**
+   * Mint tokens with KYC verification
+   */
+  async mintWithKyc(
+    assetMint: PublicKey,
+    holder: PublicKey,
+    holderTokenAccount: PublicKey,
+    amount: number,
+    schemaId: string
+  ): Promise<string> {
+    const [configPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('config')],
+      this.program.programId
+    );
+
+    const [assetPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('asset'), assetMint.toBuffer()],
+      this.program.programId
+    );
+
+    const config = await this.program.account.config.fetch(configPda);
+    const sasProgramPk = new PublicKey(config.sasProgram);
+
+    // Derive SAS PDAs
+    const [credentialPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('credential'), holder.toBuffer(), Buffer.from(schemaId)],
+      sasProgramPk
+    );
+    const [schemaPda] = PublicKey.findProgramAddressSync(
+      [Buffer.from('schema'), Buffer.from(schemaId)],
+      sasProgramPk
+    );
+
+    const tx = await (this.program as any).methods
+      .mintWithKyc({
+        amount: new anchor.BN(amount),
+        schemaId,
+      })
+      .accounts({
+        config: configPda,
+        asset: assetPda,
+        mint: assetMint,
+        holderTokenAccount,
+        holder,
+        sasProgram: sasProgramPk,
+        credential: credentialPda,
+        schema: schemaPda,
+        tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
       })
       .rpc();
 

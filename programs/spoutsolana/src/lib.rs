@@ -3,28 +3,35 @@ use anchor_lang::prelude::*;
 declare_id!("GpisZcCukL4xJjaeXJpUshVbrgzUojyGNHNAmorXj2Nx");
 
 pub mod errors;
-pub mod kyc;
 pub mod state;
+pub mod kyc;
+pub mod token;
 
-use kyc::*;
+use crate::errors::ErrorCode;
+use crate::state::*;
+use kyc::instructions::*;
+use token::instructions::*;
 
-// In calls like `verify_kyc::handler(...)`, `verify_kyc` is a Rust module path.
-// It usually comes from the file name and `pub mod` in `kyc/instructions/mod.rs`,
-// but you can alias it there without renaming the file. The instruction name itself
-// comes from the function in `#[program]` (e.g., `pub fn verify_kyc(...)`).
 #[program]
 pub mod spoutsolana {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>, args: InitializeArgs) -> Result<()> {
-        initialize::handler(ctx, args)
+        kyc::instructions::initialize::handler(ctx, args)
     }
 
     pub fn create_asset(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
-        create_asset::handler(ctx, args)
+        token::instructions::create_asset::handler(ctx, args)
     }
 
     pub fn verify_kyc(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
-        verify_kyc::handler(ctx, args)
+        kyc::instructions::verify_kyc::handler(ctx, args)
+    }
+
+    pub fn create_credential(ctx: Context<CreateCredential>, args: CreateCredentialArgs) -> Result<()> {
+        kyc::instructions::create_credential::handler(ctx, args)
     }
 }
+
+
+
