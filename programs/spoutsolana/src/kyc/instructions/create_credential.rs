@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::errors::ErrorCode;
-use crate::state::{Config, SasCredential, SasSchema, CreateCredentialArgs};
+use crate::state::CreateCredentialArgs;
+use super::super::super::CreateCredential;
 
 pub fn handler(ctx: Context<CreateCredential>, args: CreateCredentialArgs) -> Result<()> {
     let credential = &mut ctx.accounts.credential;
@@ -26,41 +27,4 @@ pub fn handler(ctx: Context<CreateCredential>, args: CreateCredentialArgs) -> Re
     Ok(())
 }
 
-#[derive(Accounts)]
-#[instruction(args: CreateCredentialArgs)]
-pub struct CreateCredential<'info> {
-    #[account(
-        seeds = [Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-    
-    /// CHECK: The holder who will receive the credential
-    pub holder: UncheckedAccount<'info>,
-    
-    /// The issuer of the credential (must match holder for self-issuance)
-    pub issuer: Signer<'info>,
-    
-    /// SAS schema PDA for (schema_id) under SAS program
-    #[account(
-        seeds = [SasSchema::SEED_PREFIX, args.schema_id.as_bytes()],
-        bump,
-        seeds::program = config.sas_program
-    )]
-    pub schema: Account<'info, SasSchema>,
-
-    /// SAS credential PDA for (holder, schema_id) under SAS program
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 32 + 4 + 32 + 8 + 1 + 1 + 1 + 4 + 1000, // Space for credential data
-        seeds = [SasCredential::SEED_PREFIX, holder.key().as_ref(), args.schema_id.as_bytes()],
-        bump
-    )]
-    pub credential: Account<'info, SasCredential>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
 

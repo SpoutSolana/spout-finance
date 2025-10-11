@@ -121,4 +121,10 @@ pub struct CreateCredentialArgs {
     pub credential_data: Vec<u8>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct CreateSchemaArgs {
+    pub schema_id: String,
+    pub fields: Vec<SasSchemaField>,
+}
+
 

@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use crate::errors::ErrorCode;
-use crate::state::{Asset, Config, CreateAssetArgs, MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_KYC_SCHEMA_ID_LEN};
+use crate::state::{CreateAssetArgs, MAX_NAME_LEN, MAX_SYMBOL_LEN, MAX_KYC_SCHEMA_ID_LEN};
+use super::super::super::CreateAsset;
 
 pub fn handler(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
     require_keys_eq!(ctx.accounts.config.authority, ctx.accounts.authority.key(), ErrorCode::Unauthorized);
@@ -24,29 +25,3 @@ pub fn handler(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
     Ok(())
 }
 
-#[derive(Accounts)]
-#[instruction(args: CreateAssetArgs)]
-pub struct CreateAsset<'info> {
-    #[account(
-        seeds = [Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 32 + 32 + 4 + MAX_NAME_LEN + 4 + MAX_SYMBOL_LEN + 8 + 1 + 1 + (1 + 4 + MAX_KYC_SCHEMA_ID_LEN),
-        seeds = [Asset::SEED_PREFIX, mint.key().as_ref()],
-        bump
-    )]
-    pub asset: Account<'info, Asset>,
-
-    /// CHECK: RWA token mint, validated off-chain or in further extensions
-    pub mint: UncheckedAccount<'info>,
-
-    pub authority: Signer<'info>,
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}

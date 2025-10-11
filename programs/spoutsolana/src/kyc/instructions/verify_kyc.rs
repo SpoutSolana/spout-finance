@@ -1,8 +1,8 @@
 use anchor_lang::prelude::*;
-
 use crate::errors::ErrorCode;
 use crate::kyc::assert_holder_is_kyc_verified;
-use crate::state::{Asset, Config, VerifyKycArgs, SasCredential, SasSchema};
+use crate::state::VerifyKycArgs;
+use super::super::super::VerifyKyc;
 
 pub fn handler(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
     let asset = &ctx.accounts.asset;
@@ -46,43 +46,3 @@ pub fn handler(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
     Ok(())
 }
 
-#[derive(Accounts)] // Input on-chain data as parameters for the handler function
-#[instruction(args: VerifyKycArgs)]
-pub struct VerifyKyc<'info> {
-    #[account(
-        seeds = [Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-    #[account(
-        seeds = [Asset::SEED_PREFIX, asset.mint.key().as_ref()],
-        bump = asset.bump,
-    )]
-    pub asset: Account<'info, Asset>,
-    
-    /// CHECK: The holder whose KYC we're verifying
-    // UncheckedAccount is used when we don't need to validate the account
-    pub holder: UncheckedAccount<'info>,
-    
-    /// CHECK: SAS program for attestation verification
-    /// In real implementation, this would be the SAS program ID
-    pub sas_program: UncheckedAccount<'info>,
-
-    /// SAS credential PDA for (holder, schema_id) under SAS program
-    /// seeds: [b"credential", holder, schema_id]
-    #[account(
-        seeds = [SasCredential::SEED_PREFIX, holder.key().as_ref(), args.schema_id.as_bytes()],
-        bump,
-        seeds::program = sas_program.key()
-    )]
-    pub credential: Account<'info, SasCredential>,
-
-    /// SAS schema PDA for (schema_id) under SAS program
-    /// seeds: [b"schema", schema_id]
-    #[account(
-        seeds = [SasSchema::SEED_PREFIX, args.schema_id.as_bytes()],
-        bump,
-        seeds::program = sas_program.key()
-    )]
-    pub schema: Account<'info, SasSchema>,
-}
