@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 
 use crate::errors::ErrorCode;
-use crate::state::{Config, SasCredential, SasSchema};
+use crate::state::Config;
 
 // SAS credential verification helper
 // This function verifies that a holder has a valid KYC credential from the SAS program

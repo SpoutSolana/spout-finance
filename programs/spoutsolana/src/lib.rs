@@ -22,18 +22,10 @@ pub mod spoutsolana {
 
     pub fn create_asset(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
         token::instructions::create_asset::handler(ctx, args)
-    }
+    } 
 
     pub fn verify_kyc(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
         kyc::instructions::verify_kyc::handler(ctx, args)
-    }
-
-    pub fn create_credential(ctx: Context<CreateCredential>, args: CreateCredentialArgs) -> Result<()> {
-        kyc::instructions::create_credential::handler(ctx, args)
-    }
-
-    pub fn create_schema(ctx: Context<CreateSchema>, args: CreateSchemaArgs) -> Result<()> {
-        kyc::instructions::create_schema::handler(ctx, args)
     }
 }
 
@@ -103,91 +95,25 @@ pub struct VerifyKyc<'info> {
     pub holder: UncheckedAccount<'info>,
     
     /// CHECK: SAS program for attestation verification
-    /// In real implementation, this would be the SAS program ID
     pub sas_program: UncheckedAccount<'info>,
 
-    /// Credential PDA for (holder, schema_id) under our program
-    /// seeds: [b"credential", holder, schema_id]
+    /// CHECK: SAS Schema PDA - derived using ["schema", schema_id]
     #[account(
-        seeds = [SasCredential::SEED_PREFIX, holder.key().as_ref(), args.schema_id.as_bytes()],
+        seeds = [b"schema", args.schema_id.as_bytes()],
+        seeds::program = config.sas_program,
         bump
     )]
-    pub credential: Account<'info, SasCredential>,
+    pub sas_schema: UncheckedAccount<'info>,
 
-    /// Schema PDA for (schema_id) under our program
-    /// seeds: [b"schema", schema_id]
+    /// CHECK: SAS Credential PDA - derived using ["credential", schema_pda, credential_id]
     #[account(
-        seeds = [SasSchema::SEED_PREFIX, args.schema_id.as_bytes()],
+        seeds = [b"credential", sas_schema.key().as_ref(), args.credential_id.as_bytes()],
+        seeds::program = config.sas_program,
         bump
     )]
-    pub schema: Account<'info, SasSchema>,
+    pub sas_credential: UncheckedAccount<'info>,
 }
 
-// Create Credential instruction
-#[derive(Accounts)]
-#[instruction(args: CreateCredentialArgs)]
-pub struct CreateCredential<'info> {
-    #[account(
-        seeds = [Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-    
-    /// CHECK: The holder of the credential
-    pub holder: UncheckedAccount<'info>,
-    
-    /// The issuer of the credential (must match holder for self-issuance)
-    pub issuer: Signer<'info>,
-    
-    /// Schema PDA for (schema_id) under our program
-    #[account(
-        seeds = [SasSchema::SEED_PREFIX, args.schema_id.as_bytes()],
-        bump
-    )]
-    pub schema: Account<'info, SasSchema>,
-
-    /// Credential PDA for (holder, schema_id) under our program
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 32 + 4 + 32 + 8 + 1 + 1 + 1 + 4 + 1000, // Space for credential data
-        seeds = [SasCredential::SEED_PREFIX, holder.key().as_ref(), args.schema_id.as_bytes()],
-        bump
-    )]
-    pub credential: Account<'info, SasCredential>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-// Create Schema instruction
-#[derive(Accounts)]
-#[instruction(args: CreateSchemaArgs)]
-pub struct CreateSchema<'info> {
-    #[account(
-        seeds = [Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, Config>,
-    
-    /// The issuer of the schema (must be the authority)
-    pub issuer: Signer<'info>,
-    
-    /// Schema PDA for (schema_id) under our program
-    #[account(
-        init,
-        payer = payer,
-        space = 8 + 4 + 32 + 8 + 4 + (args.fields.len() * (4 + 32 + 1 + 1)) + 1, // Space for schema data
-        seeds = [SasSchema::SEED_PREFIX, args.schema_id.as_bytes()],
-        bump
-    )]
-    pub schema: Account<'info, SasSchema>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
 
 
 

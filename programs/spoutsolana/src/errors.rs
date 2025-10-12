@@ -17,6 +17,16 @@ pub enum ErrorCode {
     KycRequired,
     #[msg("Schema does not match asset's configured KYC schema")] 
     SchemaMismatch,
+    #[msg("Credential has been revoked")] 
+    CredentialRevoked,
+    #[msg("Credential has expired")] 
+    CredentialExpired,
+    #[msg("Credential holder does not match expected holder")] 
+    HolderMismatch,
+    #[msg("Invalid credential data")] 
+    InvalidCredentialData,
+    #[msg("Account not initialized")] 
+    AccountNotInitialized,
 }
 
 

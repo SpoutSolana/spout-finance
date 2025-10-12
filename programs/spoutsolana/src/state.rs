@@ -37,56 +37,16 @@ impl Asset {
 // SAS (Solana Attestation Service) related structures
 // These represent the data structures that SAS manages
 
-/// SAS Schema account structure
-/// This represents a schema definition in the SAS program
-#[account]
-pub struct SasSchema {
-    pub schema_id: String,
-    pub issuer: Pubkey,
-    pub created_at: i64,
-    pub fields: Vec<SasSchemaField>,
-    pub bump: u8,
-}
+// Note: SasSchema is not needed since we only use it for PDA derivation
+// and never read from the schema account itself
 
-impl SasSchema {
-    pub const SEED_PREFIX: &'static [u8] = b"schema";
-}
+// Note: We don't define SasCredential here because:
+// 1. It belongs to the SAS program, not our program
+// 2. We don't know the actual structure of SAS credentials
+// 3. We should use UncheckedAccount and parse manually if needed
 
-/// SAS Credential account structure  
-/// This represents a credential/attestation issued by SAS
-#[account]
-pub struct SasCredential {
-    pub holder: Pubkey,
-    pub schema_id: String,
-    pub issuer: Pubkey,
-    pub issued_at: i64,
-    pub expires_at: Option<i64>,
-    pub revoked: bool,
-    pub data: Vec<u8>, // Serialized credential data
-    pub bump: u8,
-}
-
-impl SasCredential {
-    pub const SEED_PREFIX: &'static [u8] = b"credential";
-}
-
-/// SAS Schema field definition
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct SasSchemaField {
-    pub name: String,
-    pub field_type: SasFieldType,
-    pub required: bool,
-}
-
-/// SAS field types
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub enum SasFieldType {
-    String,
-    Number,
-    Boolean,
-    Date,
-    Address,
-}
+// Note: SasSchemaField and SasFieldType are not needed since we don't
+// create or validate schemas in our program
 
 
 // The structs below define instruction argument payloads used by handlers in `lib.rs`.
@@ -111,20 +71,8 @@ pub struct CreateAssetArgs {
 pub struct VerifyKycArgs {
     pub holder: Pubkey,
     pub schema_id: String,
+    pub credential_id: String,  // Added for SAS credential PDA derivation
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct CreateCredentialArgs {
-    pub holder: Pubkey,
-    pub schema_id: String,
-    pub expires_at: Option<i64>,
-    pub credential_data: Vec<u8>,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub struct CreateSchemaArgs {
-    pub schema_id: String,
-    pub fields: Vec<SasSchemaField>,
-}
 
 
