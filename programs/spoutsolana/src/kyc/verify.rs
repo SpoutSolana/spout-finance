@@ -21,15 +21,17 @@ pub fn assert_holder_is_kyc_verified<'info>(
     require_keys_eq!(*schema.owner, config.sas_program, ErrorCode::KycVerificationFailed);
 
     // Derive expected credential PDA using SAS standard seeds
+    // User stores PDA only ones per user address 
     let (expected_credential_pda, _bump) = Pubkey::find_program_address(
-        &[SasCredential::SEED_PREFIX, holder.key().as_ref(), schema_id.as_bytes()], 
+        &[b"credential", holder.key().as_ref(), schema_id.as_bytes()], 
         &config.sas_program
     );
     require_keys_eq!(credential.key(), expected_credential_pda, ErrorCode::KycVerificationFailed);
 
     // Derive expected schema PDA using SAS standard seeds
+    // User stores PDA only ones per user address 
     let (expected_schema_pda, _bump) = Pubkey::find_program_address(
-        &[SasSchema::SEED_PREFIX, schema_id.as_bytes()], 
+        &[b"schema", schema_id.as_bytes()], 
         &config.sas_program
     );
     require_keys_eq!(schema.key(), expected_schema_pda, ErrorCode::KycVerificationFailed);
@@ -53,7 +55,7 @@ pub fn derive_sas_credential_pda(
     schema_id: &str,
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[SasCredential::SEED_PREFIX, holder.as_ref(), schema_id.as_bytes()],
+        &[b"credential", holder.as_ref(), schema_id.as_bytes()],
         sas_program,
     )
 }
@@ -64,7 +66,7 @@ pub fn derive_sas_schema_pda(
     schema_id: &str,
 ) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[SasSchema::SEED_PREFIX, schema_id.as_bytes()],
+        &[b"schema", schema_id.as_bytes()],
         sas_program,
     )
 }

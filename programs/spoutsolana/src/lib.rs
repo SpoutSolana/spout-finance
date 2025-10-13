@@ -60,14 +60,17 @@ pub struct CreateAsset<'info> {
         init,
         payer = payer,
         space = 8 + 32 + 32 + 4 + MAX_NAME_LEN + 4 + MAX_SYMBOL_LEN + 8 + 1 + 1 + (1 + 4 + MAX_KYC_SCHEMA_ID_LEN),
+        // Seed should be unique identifier for the specific asset, not the minter key. So something like
+        // ticker of something that uniquely identifies the asset
         seeds = [Asset::SEED_PREFIX, mint.key().as_ref()],
         bump
     )]
     pub asset: Account<'info, Asset>,
 
     /// CHECK: RWA token mint, validated off-chain or in further extensions
+    // Comment: Why not use mint as part of the asset validation logic 
     pub mint: UncheckedAccount<'info>,
-
+    // Comment: is authority validated randomly just that the Signer exists?
     pub authority: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,

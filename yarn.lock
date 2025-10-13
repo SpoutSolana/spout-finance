@@ -557,12 +557,12 @@
   resolved "https://registry.npmjs.org/@types/mocha/-/mocha-9.1.1.tgz"
   integrity sha512-Z61JK7DKDtdKTWwLeElSEBcWGRLY8g95ic5FoQqI9CMx0ns/Ghep3B4DfcEimiKMvtamNVULVNKEsiwV3aQmXw==
 
-"@types/node@*", "@types/node@^24.5.2":
-  version "24.5.2"
-  resolved "https://registry.npmjs.org/@types/node/-/node-24.5.2.tgz"
-  integrity sha512-FYxk1I7wPv3K2XBaoyH2cTnocQEu8AOZ60hPbsyukMPLv5/5qr7V1i8PLHdl6Zf87I+xZXFvPCXYjiTFq+YSDQ==
+"@types/node@*", "@types/node@^24.7.2":
+  version "24.7.2"
+  resolved "https://registry.npmjs.org/@types/node/-/node-24.7.2.tgz"
+  integrity sha512-/NbVmcGTP+lj5oa4yiYxxeBjRivKQ5Ns1eSZeB99ExsEQ6rX5XYU1Zy/gGxY/ilqtD4Etx9mKyrPxZRetiahhA==
   dependencies:
-    undici-types "~7.12.0"
+    undici-types "~7.14.0"
 
 "@types/node@^12.12.54":
   version "12.20.55"
@@ -692,6 +692,19 @@ borsh@^0.7.0:
     bn.js "^5.2.0"
     bs58 "^4.0.0"
     text-encoding-utf-8 "^1.0.2"
+
+borsh@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.npmjs.org/borsh/-/borsh-2.0.0.tgz"
+  integrity sha512-kc9+BgR3zz9+cjbwM8ODoUB4fs3X3I5A/HtX7LZKxCLaMrEeDFoBpnhZY//DTS1VZBSs6S5v46RZRbZjRFspEg==
+
+borsher@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.npmjs.org/borsher/-/borsher-4.0.0.tgz"
+  integrity sha512-DrbMSz/xg0bFRiiqe8S0nXEr1whp96hcEHAriKFOlpG2wTihMrg5zZNFH+m4tMcnDY/klKws2YRVHjD4jpdiKg==
+  dependencies:
+    borsh "^2.0.0"
+    buffer "^6.0.3"
 
 brace-expansion@^1.1.7:
   version "1.1.12"
@@ -1342,6 +1355,16 @@ safe-buffer@^5.0.1, safe-buffer@^5.1.0:
   resolved "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz"
   integrity sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==
 
+sas-lib@^1.0.9:
+  version "1.0.9"
+  resolved "https://registry.npmjs.org/sas-lib/-/sas-lib-1.0.9.tgz"
+  integrity sha512-8lvfr3XhO0xlV6JFLcgC2zSA9OU9Txd6oP/+AXoIWwCvZdvccqVEIJFRKjct6r3DH7ZcDpYdKNywc9BMjZQWdg==
+  dependencies:
+    "@solana/kit" "^2.1.0"
+    bn.js "^5.2.1"
+    borsh "^2.0.0"
+    borsher "^4.0.0"
+
 serialize-javascript@6.0.0:
   version "6.0.0"
   resolved "https://registry.npmjs.org/serialize-javascript/-/serialize-javascript-6.0.0.tgz"
@@ -1508,15 +1531,15 @@ type-detect@^4.0.0, type-detect@^4.1.0:
   resolved "https://registry.npmjs.org/type-detect/-/type-detect-4.1.0.tgz"
   integrity sha512-Acylog8/luQ8L7il+geoSxhEkazvkslg7PSNKOX59mbB9cOveP5aq9h74Y7YU8yDpJwetzQQrfIwtf4Wp4LKcw==
 
-typescript@^5.9.2, typescript@>=2.7, typescript@>=5, typescript@>=5.3.3:
-  version "5.9.2"
-  resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.2.tgz"
-  integrity sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==
+typescript@^5.9.3, typescript@>=2.7, typescript@>=5, typescript@>=5.3.3:
+  version "5.9.3"
+  resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz"
+  integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==
 
-undici-types@^7.11.0, undici-types@~7.12.0:
-  version "7.12.0"
-  resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.12.0.tgz"
-  integrity sha512-goOacqME2GYyOZZfb5Lgtu+1IDmAlAEu5xnD3+xTzS10hT0vzpf0SPjkXwAw9Jm+4n/mQGDP3LO8CPbYROeBfQ==
+undici-types@^7.11.0, undici-types@~7.14.0:
+  version "7.14.0"
+  resolved "https://registry.npmjs.org/undici-types/-/undici-types-7.14.0.tgz"
+  integrity sha512-QQiYxHuyZ9gQUIrmPo3IA+hUl4KYk8uSA7cHrcKd/l3p1OTpZcM0Tbp9x7FAtXdAYhlasd60ncPpgu6ihG6TOA==
 
 utf-8-validate@^5.0.2, utf-8-validate@>=5.0.2:
   version "5.0.10"

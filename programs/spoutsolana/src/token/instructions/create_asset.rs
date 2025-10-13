@@ -14,12 +14,14 @@ pub fn handler(ctx: Context<CreateAsset>, args: CreateAssetArgs) -> Result<()> {
     }
 
     let asset = &mut ctx.accounts.asset;
+    // Comment: What is the mint field 
     asset.mint = ctx.accounts.mint.key();
     asset.issuer = ctx.accounts.authority.key();
     asset.name = args.name;
     asset.symbol = args.symbol;
     asset.total_supply = args.total_supply;
     asset.kyc_required = args.kyc_required;
+    // Comment: Optional, depends if we are going to tie schema to the asset 
     asset.kyc_schema_id = args.kyc_schema_id;
     asset.bump = ctx.bumps.asset;
     Ok(())
