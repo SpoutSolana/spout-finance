@@ -1,43 +1,28 @@
 
 
-import { PublicKey } from "@solana/web3.js";
-import { Buffer } from "buffer";
-import { Address } from "gill";
+import { PublicKey, Keypair } from "@solana/web3.js";
+import {
+  deriveSchemaPda as sasDeriveSchemaPda,
+  deriveCredentialPda as sasDeriveCredentialPda,
+  SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS,
+} from "sas-lib";
 
-// SAS(Solana Attestation Service) ProgramID
-export const SAS_PROGRAM_ID = new PublicKey("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
+export { sasDeriveSchemaPda as deriveSchemaPda, sasDeriveCredentialPda as deriveCredentialPda };
 
-export type Credential = {
-    identifier: Address | string | number
-    authority: Address | string | number
+export const SAS_PROGRAM_ID = new PublicKey(SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS);
+
+export function getSasProgramId(): PublicKey {
+  return SAS_PROGRAM_ID;
 }
 
-export function deriveSchemaPda(schemaId: string): PublicKey {
-  const [schemaPda] = PublicKey.findProgramAddressSync(
-    // Seed aggregation
-    [Buffer.from("schema"), Buffer.from(schemaId)],
-    SAS_PROGRAM_ID
-  );
-  return schemaPda;
+// Minimal helper to generate an authority keypair
+export function generateAuthorityKeypair(): Keypair {
+  return Keypair.generate();
 }
 
-// Using one credential per authority
-export function deriveCredentialPda(authority: PublicKey, name: string): PublicKey {
-  const [credentialPda] = PublicKey.findProgramAddressSync(
-    [authority.toBuffer(), Buffer.from(name)],
-    SAS_PROGRAM_ID
-  );
-  return credentialPda;
-}
-
-export function deriveCredentialPdaWithSchema(schemaId: string, credentialId: string): {
-  schemaPda: PublicKey;
-  credentialPda: PublicKey;
-} {
-  const schemaPda = deriveSchemaPda(schemaId);
-  const [credentialPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from("credential"), schemaPda.toBuffer(), Buffer.from(credentialId)],
-    SAS_PROGRAM_ID
-  );
-  return { schemaPda, credentialPda };
+// Convenience helper: accept PublicKey or string authority, return credential PDA as PublicKey
+export async function deriveCredentialPdaAsPublicKey(params: { authority: PublicKey | string; name: string }): Promise<PublicKey> {
+  const authorityStr = typeof params.authority === "string" ? params.authority : params.authority.toString();
+  const [credentialPda] = await sasDeriveCredentialPda({ authority: authorityStr , name: params.name });
+  return new PublicKey(credentialPda.toString());
 }
