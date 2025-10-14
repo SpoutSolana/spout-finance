@@ -6,6 +6,7 @@ import {
   deriveCredentialPda as sasDeriveCredentialPda,
   SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS,
 } from "sas-lib";
+import type { Address } from "gill";
 
 export { sasDeriveSchemaPda as deriveSchemaPda, sasDeriveCredentialPda as deriveCredentialPda };
 
@@ -22,7 +23,9 @@ export function generateAuthorityKeypair(): Keypair {
 
 // Convenience helper: accept PublicKey or string authority, return credential PDA as PublicKey
 export async function deriveCredentialPdaAsPublicKey(params: { authority: PublicKey | string; name: string }): Promise<PublicKey> {
-  const authorityStr = typeof params.authority === "string" ? params.authority : params.authority.toString();
-  const [credentialPda] = await sasDeriveCredentialPda({ authority: authorityStr , name: params.name });
+  const authorityAddr = (
+    typeof params.authority === "string" ? params.authority : params.authority.toBase58()
+  ) as unknown as Address;
+  const [credentialPda] = await sasDeriveCredentialPda({ authority: authorityAddr, name: params.name });
   return new PublicKey(credentialPda.toString());
 }
