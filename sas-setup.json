@@ -1,0 +1,42 @@
+{
+  "credential": {
+    "name": "KYCProvider",
+    "authority": "3L8Gbr6sP6xymMdax7GgBBSrXiH1tX5fV7ZyRwvg1nmj",
+    "pda": "8nhVFnwnnP45dhmsCrrUTFUuHtRQmTCUG8MSHpdMobvj",
+    "transaction": "2HYboaJcnkdkXcWGQoaF3uS9SyJYQWLB8mF42mVNNPNKBkfDdo2VHCutq8QiEKqJTiFx6sJG3U5FyPLk9oX646nV",
+    "command": "npx ts-node --esm scripts/create-credential.ts 3L8Gbr6sP6xymMdax7GgBBSrXiH1tX5fV7ZyRwvg1nmj KYCProvider https://api.devnet.solana.com"
+  },
+  "schema": {
+    "name": "KYC",
+    "version": 1,
+    "description": "Simple KYC completion status",
+    "credential_pda": "8nhVFnwnnP45dhmsCrrUTFUuHtRQmTCUG8MSHpdMobvj",
+    "pda": "2sjYv8pwE2WrB5fZBbffPoLfp7jhtccLkigtTn35R1BJ",
+    "transaction": "4FQWwsSyeygBsMexYnWsacwa59T6Y1Wkpfxjdng1vEjbfrGm58kGLCoQCYoduUqHTUWVJQgaqwDQaF2wAjQSooGE",
+    "command": "npx ts-node --esm scripts/create-schema.ts 8nhVFnwnnP45dhmsCrrUTFUqHTUWVJQgaqwDQaF2wAjQSooGE KYC 1 'Simple KYC completion status' https://api.devnet.solana.com",
+    "fields": {
+      "kycCompleted": {
+        "type": "boolean",
+        "layout": "1 byte"
+      }
+    }
+  },
+  "network": {
+    "cluster": "devnet",
+    "rpc_url": "https://api.devnet.solana.com",
+    "sas_program_id": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG"
+  },
+  "wallet": {
+    "public_key": "3L8Gbr6sP6xymMdax7GgBBSrXiH1tX5fV7ZyRwvg1nmj",
+    "balance": "1.99390392 SOL",
+    "keypair_source": "Created from provided private key using Keypair.fromSeed() with first 32 bytes",
+    "intended_address": "Dd454fdtKRF5NEAbwCCVJnj8P4FroAD8Ei4dHRWUC4LW",
+    "note": "The actual wallet used may not correspond to the originally intended address"
+  },
+  "setup_summary": {
+    "credential_created": true,
+    "schema_created": true,
+    "ready_for_attestations": true,
+    "next_step": "Create attestation using credential and schema PDAs"
+  }
+}

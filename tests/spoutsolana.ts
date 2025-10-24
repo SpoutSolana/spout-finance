@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { BN, Program } from "@coral-xyz/anchor";
 import { Spoutsolana } from "../target/types/spoutsolana";
 import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
+import { createCredentialInstruction, generateAuthorityKeypair } from "../implementations/PDAderivation";
 
 describe("spoutsolana", () => {
   // Configure the client to use the local cluster.
@@ -64,5 +65,27 @@ describe("spoutsolana", () => {
         sasProgram: PublicKey.default,
       })
       .rpc();
+  });
+
+  it("creates KYC credential", async () => {
+    const provider = anchor.getProvider() as anchor.AnchorProvider;
+    const payer = (provider.wallet as anchor.Wallet).payer;
+    
+    // Generate an authority keypair for the KYC credential
+    const authority = generateAuthorityKeypair();
+    
+    // Create KYC credential instruction
+    const credentialInstruction = await createCredentialInstruction({
+      payer: payer.publicKey,
+      authority: authority.publicKey,
+      name: "KYC Verification",
+      signers: [authority.publicKey]
+    });
+    
+    console.log("KYC Credential Instruction:", credentialInstruction);
+    console.log("Authority Public Key:", authority.publicKey.toBase58());
+    
+    // For now, just log the instruction - we'll execute it in the next step
+    // TODO: Execute the instruction with proper SAS program setup
   });
 });

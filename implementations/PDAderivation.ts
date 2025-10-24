@@ -5,6 +5,7 @@ import {
   deriveSchemaPda as sasDeriveSchemaPda,
   deriveCredentialPda as sasDeriveCredentialPda,
   getCreateCredentialInstruction,
+  getCreateSchemaInstruction,
   SOLANA_ATTESTATION_SERVICE_PROGRAM_ADDRESS,
 } from "sas-lib";
 import type { Address } from "gill";
@@ -23,7 +24,7 @@ export function generateAuthorityKeypair(): Keypair {
 }
 
 // Convenience helper: accept PublicKey or string authority, return credential PDA as PublicKey
-export async function deriveCredentialPdaAsPublicKey(params: { authority: PublicKey | string; name: string }): Promise<PublicKey> {
+ async function deriveCredentialPdaAsPublicKey(params: { authority: PublicKey | string; name: string }): Promise<PublicKey> {
   const authorityAddr = (
     typeof params.authority === "string" ? params.authority : params.authority.toBase58()
   ) as unknown as Address;
@@ -32,7 +33,7 @@ export async function deriveCredentialPdaAsPublicKey(params: { authority: Public
 }
 
 // Convenience helper: accept credential (PublicKey|string), name, version → schema PDA as PublicKey
-export async function deriveSchemaPdaAsPublicKey(params: { credential: PublicKey | string; name: string; version: number }): Promise<PublicKey> {
+ async function deriveSchemaPdaAsPublicKey(params: { credential: PublicKey | string; name: string; version: number }): Promise<PublicKey> {
   const credentialAddr = (
     typeof params.credential === "string" ? params.credential : params.credential.toBase58()
   ) as unknown as Address;
@@ -60,6 +61,35 @@ export async function createCredentialInstruction(params: {
     authority: (typeof params.authority === "string" ? params.authority : params.authority.toBase58()) as any,
     name: params.name,
     signers: params.signers.map(s => (typeof s === "string" ? s : s.toBase58())) as any
+  });
+}
+
+export async function createSchemaInstruction(params: {
+  payer: PublicKey | string;
+  authority: PublicKey | string;
+  credential: PublicKey | string;
+  name: string;
+  version: number;
+  description: string;
+  fieldNames: string[];
+  layout: any;
+}): Promise<any> {
+  // Seed derivation from credential, name, and version
+  const schemaPda = await deriveSchemaPdaAsPublicKey({
+    credential: params.credential,
+    name: params.name,
+    version: params.version
+  });
+
+  return getCreateSchemaInstruction({
+    authority: (typeof params.authority === "string" ? params.authority : params.authority.toBase58()) as any,
+    payer: (typeof params.payer === "string" ? params.payer : params.payer.toBase58()) as any,
+    name: params.name,
+    credential: (typeof params.credential === "string" ? params.credential : params.credential.toBase58()) as any,
+    description: params.description,
+    fieldNames: params.fieldNames, 
+    schema: schemaPda.toString() as any,
+    layout: params.layout,
   });
 }
 
