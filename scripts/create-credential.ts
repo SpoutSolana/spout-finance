@@ -1,7 +1,7 @@
-import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, clusterApiUrl, TransactionInstruction } from "@solana/web3.js";
+import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, clusterApiUrl, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import fs from "fs";
 import os from "os";
-import { createCredentialInstruction, getSasProgramId } from "../implementations/PDAderivation.ts";
+import { createCredentialInstruction, getSasProgramId } from "../implementations/PDAderivation";
 
 async function main() {
   const [authorityArg, nameArg, rpcArg] = process.argv.slice(2);
@@ -11,7 +11,7 @@ async function main() {
   }
 
   const authority = new PublicKey(authorityArg);
-  const rpcUrl = rpcArg || clusterApiUrl("testnet");
+  const rpcUrl = rpcArg || clusterApiUrl("devnet");
   const connection = new Connection(rpcUrl, "confirmed");
 
   // Use default keypair from SOLANA_KEYPAIR if available, else from default CLI path
@@ -41,7 +41,7 @@ async function main() {
     try {
       payer = Keypair.fromSeed(seed);
       console.log("Created keypair from seed, public key:", payer.publicKey.toBase58());
-    } catch (e) {
+    } catch (e: any) {
       console.log("Seed method failed:", e.message);
       throw e;
     }
@@ -53,7 +53,11 @@ async function main() {
   console.log("Authority public key:", authority.toBase58());
   
   if (!payer.publicKey.equals(authority)) {
-    console.log("Note: Using different payer than authority (this is allowed)");
+    console.log("❌ ERROR: Payer and authority must be the same for credential creation!");
+    console.log("   Payer:", payer.publicKey.toBase58());
+    console.log("   Authority:", authority.toBase58());
+    console.log("   We need to use the keypair that corresponds to the authority address.");
+    process.exit(1);
   }
 
   const ix = await createCredentialInstruction({
@@ -67,15 +71,16 @@ async function main() {
 
   // Convert sas-lib instruction format to standard Solana instruction
   const programId = new PublicKey(ix.programAddress);
+  // Map accounts to Solana format - keep all accounts but handle duplicates properly
   const accounts = ix.accounts.map((acc: any, index: number) => {
     const pubkey = new PublicKey(acc.address);
     
-    // Only the authority (first account) should be a signer
-    // PDAs (like credential accounts) should not be signers
-    const isSigner = index === 0 && acc.role === 1;
+    // The authority should be a signer
+    const isAuthority = pubkey.equals(authority);
+    const isSigner = isAuthority;
     
     // PDAs are typically writable when being created
-    const isWritable = acc.role === 1 || index === 1; // authority or credential PDA
+    const isWritable = acc.role === 1 || isAuthority;
     
     return {
       pubkey,
@@ -84,9 +89,20 @@ async function main() {
     };
   });
 
+  // Debug: Print account details
+  console.log("\n=== ACCOUNT MAPPING DEBUG ===");
+  console.log("Authority to match:", authority.toBase58());
+  accounts.forEach((acc: any, index: number) => {
+    const isAuthority = acc.pubkey.equals(authority);
+    console.log(`Account ${index}: ${acc.pubkey.toBase58()}`);
+    console.log(`  isAuthority: ${isAuthority}`);
+    console.log(`  isSigner: ${acc.isSigner}`);
+    console.log(`  isWritable: ${acc.isWritable}`);
+  });
+
   // Convert data from object format to Uint8Array
   const dataArray = Object.values(ix.data) as number[];
-  const data = new Uint8Array(dataArray);
+  const data = Buffer.from(dataArray);
 
   const solanaInstruction = new TransactionInstruction({
     programId,
@@ -95,7 +111,13 @@ async function main() {
   });
 
   const tx = new Transaction().add(solanaInstruction);
-  const sig = await sendAndConfirmTransaction(connection, tx, [payer]);
+  
+  // Since payer and authority are the same, we need to sign with the same keypair
+  // but Solana expects each signer to be unique in the array
+  const signers = [payer];
+  
+  console.log("Signing with keypair:", payer.publicKey.toBase58());
+  const sig = await sendAndConfirmTransaction(connection, tx, signers);
   console.log("Transaction signature:", sig);
 }
 

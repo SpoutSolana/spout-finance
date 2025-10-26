@@ -1,13 +1,13 @@
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, clusterApiUrl, TransactionInstruction } from "@solana/web3.js";
 import fs from "fs";
 import os from "os";
-import { createSchemaInstruction } from "../implementations/PDAderivation.ts";
+import { createSchemaInstruction } from "../implementations/PDAderivation";
 
 async function main() {
   const [credentialArg, nameArg, versionArg, descriptionArg, rpcArg] = process.argv.slice(2);
   if (!credentialArg || !nameArg || !versionArg || !descriptionArg) {
-    console.error("Usage: ts-node scripts/create-schema.ts <CREDENTIAL_PDA> <NAME> <VERSION> <DESCRIPTION> [RPC_URL]");
-    console.error("Example: ts-node scripts/create-schema.ts 8nhVFnwnnP45dhmsCrrUTFUuHtRQmTCUG8MSHpdMobvj KYCStatus 1 'Simple KYC status'");
+    console.error("Usage: ts-node scripts/create-schema-working.ts <CREDENTIAL_PDA> <NAME> <VERSION> <DESCRIPTION> [RPC_URL]");
+    console.error("Example: ts-node scripts/create-schema-working.ts B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL KYCStatus 1 'Simple KYC status'");
     process.exit(1);
   }
 
@@ -18,8 +18,8 @@ async function main() {
   const rpcUrl = rpcArg || clusterApiUrl("devnet");
   const connection = new Connection(rpcUrl, "confirmed");
 
-  // Use environment variables if available, otherwise use default keypair
-  const keypairPath = process.env.SPOUT_AUTHORITY_KEYPAIR || process.env.SOLANA_KEYPAIR || os.homedir() + "/.config/solana/id.json";
+  // Use default keypair
+  const keypairPath = process.env.SOLANA_KEYPAIR || os.homedir() + "/.config/solana/id.json";
   const raw = fs.readFileSync(keypairPath, { encoding: "utf-8" });
   const secretArray: number[] = JSON.parse(raw);
   
@@ -38,7 +38,7 @@ async function main() {
     try {
       payer = Keypair.fromSeed(seed);
       console.log("Created keypair from seed, public key:", payer.publicKey.toBase58());
-    } catch (e) {
+    } catch (e: any) {
       console.log("Seed method failed:", e.message);
       throw e;
     }
@@ -86,7 +86,7 @@ async function main() {
   });
 
   const dataArray = Object.values(ix.data) as number[];
-  const data = new Uint8Array(dataArray);
+  const data = Buffer.from(dataArray);
 
   const solanaInstruction = new TransactionInstruction({
     programId,
