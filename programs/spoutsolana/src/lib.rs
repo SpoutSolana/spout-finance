@@ -6,6 +6,8 @@ pub mod errors;
 pub mod state;
 pub mod kyc;
 pub mod token;
+pub mod kyc_token;
+pub mod sas_integration;
 
 use crate::errors::ErrorCode;
 use crate::state::*;
@@ -26,6 +28,38 @@ pub mod spoutsolana {
 
     pub fn verify_kyc(ctx: Context<VerifyKyc>, args: VerifyKycArgs) -> Result<()> {
         kyc::instructions::verify_kyc::handler(ctx, args)
+    }
+
+    // KYC Token instructions
+    pub fn initialize_kyc_mint(
+        ctx: Context<kyc_token::InitializeKycMint>,
+        name: String,
+        symbol: String,
+        uri: String,
+        initial_supply: u64,
+    ) -> Result<()> {
+        kyc_token::initialize_kyc_mint(ctx, name, symbol, uri, initial_supply)
+    }
+
+    pub fn mint_to_kyc_user(
+        ctx: Context<kyc_token::MintToKycUser>,
+        amount: u64,
+    ) -> Result<()> {
+        kyc_token::mint_to_kyc_user(ctx, amount)
+    }
+
+    pub fn transfer_kyc_tokens(
+        ctx: Context<kyc_token::TransferKycTokens>,
+        amount: u64,
+    ) -> Result<()> {
+        kyc_token::transfer_kyc_tokens(ctx, amount)
+    }
+
+    pub fn burn_kyc_tokens(
+        ctx: Context<kyc_token::BurnKycTokens>,
+        amount: u64,
+    ) -> Result<()> {
+        kyc_token::burn_kyc_tokens(ctx, amount)
     }
 }
 

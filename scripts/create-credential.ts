@@ -1,7 +1,7 @@
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, clusterApiUrl, TransactionInstruction, SystemProgram } from "@solana/web3.js";
 import fs from "fs";
 import os from "os";
-import { createCredentialInstruction, getSasProgramId } from "../implementations/PDAderivation";
+import { createCredentialInstruction } from "../implementations/PDAderivation";
 
 async function main() {
   const [authorityArg, nameArg, rpcArg] = process.argv.slice(2);

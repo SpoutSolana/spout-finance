@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.95.2",
     "gill": "^0.11.0",
     "sas-lib": "^1.0.9"
