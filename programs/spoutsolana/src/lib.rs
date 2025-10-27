@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{associated_token::AssociatedToken, token::{Mint, Token, TokenAccount}};
 
 declare_id!("EkU7xRmBhVyHdwtRZ4SJ9D3Nz6SeAvymft7nz3CL2XXB");
 
@@ -6,7 +7,7 @@ pub mod errors;
 pub mod state;
 pub mod kyc;
 pub mod token;
-pub mod kyc_token;
+pub mod kyc_token_simple;
 pub mod sas_integration;
 
 use crate::errors::ErrorCode;
@@ -32,34 +33,20 @@ pub mod spoutsolana {
 
     // KYC Token instructions
     pub fn initialize_kyc_mint(
-        ctx: Context<kyc_token::InitializeKycMint>,
+        ctx: Context<InitializeKycMint>,
         name: String,
         symbol: String,
         uri: String,
         initial_supply: u64,
     ) -> Result<()> {
-        kyc_token::initialize_kyc_mint(ctx, name, symbol, uri, initial_supply)
+        kyc_token_simple::initialize_kyc_mint(ctx, name, symbol, uri, initial_supply)
     }
 
     pub fn mint_to_kyc_user(
-        ctx: Context<kyc_token::MintToKycUser>,
+        ctx: Context<MintToKycUser>,
         amount: u64,
     ) -> Result<()> {
-        kyc_token::mint_to_kyc_user(ctx, amount)
-    }
-
-    pub fn transfer_kyc_tokens(
-        ctx: Context<kyc_token::TransferKycTokens>,
-        amount: u64,
-    ) -> Result<()> {
-        kyc_token::transfer_kyc_tokens(ctx, amount)
-    }
-
-    pub fn burn_kyc_tokens(
-        ctx: Context<kyc_token::BurnKycTokens>,
-        amount: u64,
-    ) -> Result<()> {
-        kyc_token::burn_kyc_tokens(ctx, amount)
+        kyc_token_simple::mint_to_kyc_user(ctx, amount)
     }
 }
 
@@ -151,9 +138,85 @@ pub struct VerifyKyc<'info> {
     pub sas_credential: UncheckedAccount<'info>,
 }
 
+// KYC Token account structures
+#[derive(Accounts)]
+pub struct InitializeKycMint<'info> {
+    #[account(
+        init,
+        payer = authority,
+        mint::decimals = 9,
+        mint::authority = program_authority,
+        mint::freeze_authority = program_authority,
+    )]
+    pub mint: Account<'info, Mint>,
+    
+    #[account(
+        init,
+        payer = authority,
+        associated_token::mint = mint,
+        associated_token::authority = authority,
+    )]
+    pub authority_token_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + 32,
+        seeds = [b"program_authority"],
+        bump,
+    )]
+    /// CHECK: This is a program-derived authority
+    pub program_authority: UncheckedAccount<'info>,
+    
+    #[account(mut)]
+    pub authority: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
+}
 
-
-
-
-
-
+#[derive(Accounts)]
+pub struct MintToKycUser<'info> {
+    #[account(mut)]
+    pub mint: Account<'info, Mint>,
+    
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = mint,
+        associated_token::authority = user,
+    )]
+    pub user_token_account: Account<'info, TokenAccount>,
+    
+    /// CHECK: SAS attestation account
+    pub attestation_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS schema account
+    pub schema_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS credential account
+    pub credential_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+    
+    #[account(
+        seeds = [b"program_authority"],
+        bump,
+    )]
+    /// CHECK: This is a program-derived authority
+    pub program_authority: UncheckedAccount<'info>,
+    
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
