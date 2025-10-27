@@ -12,7 +12,7 @@ import {
 } from "sas-lib";
 import type { Address } from "gill";
 
-export { sasDeriveSchemaPda as deriveSchemaPda, sasDeriveCredentialPda as deriveCredentialPda };
+export { sasDeriveSchemaPda as deriveSchemaPda, sasDeriveCredentialPda as deriveCredentialPda, sasDeriveAttestationPda as deriveAttestationPda };
 
 // Manual attestation PDA derivation (bypasses SAS library issues)
 export function deriveAttestationPdaManual(params: {
@@ -139,47 +139,42 @@ export async function createAttestationInstruction(params: {
   authority: PublicKey | string;
   credential: PublicKey | string;
   schema: PublicKey | string;
-  holder: PublicKey | string;
-  data: string |Uint8Array;
-  nonce?: number;
+  attestation: PublicKey | string;
+  data: string | Uint8Array;
+  nonce?: PublicKey | string | number;
   expiry?: number;
-  tokenAccount?: PublicKey | string;
 }): Promise<any> {
-  // Seed derivation from credential, schema, holder, and nonce
-  const attestationPda = await deriveAttestationPdaAsPublicKey({
-    credential: params.credential,
-    schema: params.schema,
-    holder: params.holder,
-    nonce: params.nonce || 0
-  });
+  // Use the provided attestation PDA directly (like official example)
+  const attestationPda = typeof params.attestation === "string" ? new PublicKey(params.attestation) : params.attestation;
 
-  // Create a nonce PublicKey from the holder address (as per SAS documentation)
-  const noncePublicKey = typeof params.holder === "string" ? new PublicKey(params.holder) : params.holder;
+  // Handle nonce parameter - can be PublicKey, string, or number
+  let noncePublicKey: PublicKey;
+  if (typeof params.nonce === "string") {
+    noncePublicKey = new PublicKey(params.nonce);
+  } else if (params.nonce instanceof PublicKey) {
+    noncePublicKey = params.nonce;
+  } else if (typeof params.nonce === "number") {
+    // If it's a number, use it as a seed for PDA derivation
+    noncePublicKey = new PublicKey(Buffer.from([params.nonce]));
+  } else {
+    // Default to a system account if no nonce provided
+    noncePublicKey = new PublicKey("11111111111111111111111111111111");
+  }
   
-  // For KYC attestations, we might not need a real token account
-  // Try using the holder address or a system account
-  const tokenAccount = params.tokenAccount || new PublicKey("11111111111111111111111111111111");
-
-  // Handle data parameter - convert string to Uint8Array if needed
+  // Handle data parameter - convert string to Uint8Array if needed, but pass appropriate format to SAS
   const dataBytes = typeof params.data === "string" ? new TextEncoder().encode(params.data) : params.data;
 
-  // Try without tokenAccount first to see if it's required
+  // Create instruction parameters following official pattern
   const instructionParams: any = {
     payer: (typeof params.payer === "string" ? params.payer : params.payer.toBase58()) as any,
     authority: (typeof params.authority === "string" ? params.authority : params.authority.toBase58()) as any,
     credential: (typeof params.credential === "string" ? params.credential : params.credential.toBase58()) as any,
     schema: (typeof params.schema === "string" ? params.schema : params.schema.toBase58()) as any,
     attestation: attestationPda.toBase58() as any,
-    systemProgram: "11111111111111111111111111111111" as any,
     nonce: noncePublicKey.toBase58() as any,
     data: dataBytes,
     expiry: params.expiry?.toString() as any
   };
-
-  // Only add tokenAccount if it's provided
-  if (params.tokenAccount) {
-    instructionParams.tokenAccount = (typeof tokenAccount === "string" ? tokenAccount : tokenAccount.toBase58()) as any;
-  }
 
   return getCreateAttestationInstruction(instructionParams);
 }
