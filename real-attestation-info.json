@@ -1,0 +1,14 @@
+{
+  "user": {
+    "address": "BD29wQ5Tj7b1MEFqquRxASsTqoN38oCrjxpU4riTZx7C",
+    "privateKey": []
+  },
+  "attestation": {
+    "pda": "8VhaisadE8mQeH5JogKYNFy4eiZyVsVYjMJx8r5KKcRp",
+    "credential": "B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL",
+    "schema": "GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x",
+    "nonce": "BgqSDxpdoy4ETRq7i9CYqpMCtS9tNa6GmNYcHA951x8r",
+    "sasProgram": "22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG",
+    "created_at": "2025-10-28T21:04:16.674Z"
+  }
+}
