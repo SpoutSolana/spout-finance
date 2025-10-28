@@ -22,4 +22,6 @@ init-if-needed = ["anchor-lang/init-if-needed"]
 anchor-lang = "0.31.1"
 anchor-spl = "0.31.1"
 # SAS integration is via CPI using its program ID; no direct crate deps
+borsh = { version = "0.10.3", features = ["derive"] }
+mpl-token-metadata = { version = "4.1.2", features = ["no-entrypoint"] }
 

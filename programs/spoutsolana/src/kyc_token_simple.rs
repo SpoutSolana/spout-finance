@@ -3,6 +3,8 @@ use anchor_spl::{
     token::{mint_to, MintTo},
 };
 use crate::{sas_integration::*, InitializeKycMint, MintToKycUser};
+use mpl_token_metadata::instruction::create_metadata_accounts_v3;
+use mpl_token_metadata::state::DataV2;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anchor_spl::token::spl_token::state::Mint as SplMint;
 
@@ -81,25 +83,83 @@ fn verify_attestation(
 
 // Initialize a KYC-gated token mint
 pub fn initialize_kyc_mint(
-    _ctx: Context<InitializeKycMint>,
-    _name: String,
-    _symbol: String,
-    _uri: String,
+    ctx: Context<InitializeKycMint>,
+    name: String,
+    symbol: String,
+    uri: String,
     _initial_supply: u64,
 ) -> Result<()> {
     // Mint is initialized by Anchor with the constraints specified in InitializeKycMint
+
+    // Create Metaplex Metadata account for the mint
+    let metadata_seeds = &[
+        b"metadata",
+        mpl_token_metadata::ID.as_ref(),
+        ctx.accounts.mint.key().as_ref(),
+    ];
+    let (metadata_pda, _bump) = Pubkey::find_program_address(metadata_seeds, &mpl_token_metadata::ID);
+
+    let data = DataV2 {
+        name,
+        symbol,
+        uri,
+        seller_fee_basis_points: 0,
+        creators: None,
+        collection: None,
+        uses: None,
+    };
+
+    let ix = create_metadata_accounts_v3(
+        mpl_token_metadata::ID,
+        metadata_pda,
+        ctx.accounts.mint.key(),
+        ctx.accounts.program_authority.key(),
+        ctx.accounts.authority.key(),
+        ctx.accounts.program_authority.key(),
+        data,
+        true,
+        true,
+        None,
+    );
+
+    // Sign as program authority PDA
+    let bump_seed = [ctx.bumps.program_authority];
+    let seeds: &[&[u8]] = &[b"program_authority", ctx.accounts.mint.key().as_ref(), &bump_seed];
+    let signer_seeds = &[seeds];
+
+    anchor_lang::solana_program::program::invoke_signed(
+        &ix,
+        &[
+            ctx.accounts.token_metadata_program.to_account_info(),
+            ctx.accounts.mint.to_account_info(),
+            ctx.accounts.program_authority.to_account_info(),
+            ctx.accounts.authority.to_account_info(),
+            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.rent.to_account_info(),
+        ],
+        signer_seeds,
+    )?;
+
     Ok(())
 }
 
-// Mint tokens to a KYC-verified user
+// Mint tokens to a KYC-verified recipient (called by authorized issuer)
 pub fn mint_to_kyc_user(
     ctx: Context<MintToKycUser>,
+    recipient: Pubkey,  // ← Recipient wallet (not a signer)
     amount: u64,
 ) -> Result<()> {
-    // Verify KYC status using the Rust example's verify_attestation function
+    // Enforce only configured authority can mint
+    require_keys_eq!(
+        ctx.accounts.config.authority,
+        ctx.accounts.issuer.key(),
+        crate::errors::ErrorCode::Unauthorized
+    );
+
+    // Verify KYC status for the recipient
     let is_verified = verify_attestation(
         &ctx.accounts.schema_account.key(),
-        &ctx.accounts.user.key(),
+        &recipient,  // ← Use the recipient parameter
         &ctx.accounts.credential_account.key(),
         &ctx.accounts.attestation_account,
     )?;
@@ -108,13 +168,13 @@ pub fn mint_to_kyc_user(
     
     // Create seeds array for PDA signing
     let bump_seed = [ctx.bumps.program_authority];
-    let seeds: &[&[u8]] = &[b"program_authority", &bump_seed];
+    let seeds: &[&[u8]] = &[b"program_authority", ctx.accounts.mint.key().as_ref(), &bump_seed];
     let signer_seeds = &[seeds];
     
     // Mint tokens using CPI
     let cpi_accounts = MintTo {
         mint: ctx.accounts.mint.to_account_info(),
-        to: ctx.accounts.user_token_account.to_account_info(),
+        to: ctx.accounts.recipient_token_account.to_account_info(),  // ← Mint to recipient's token account
         authority: ctx.accounts.program_authority.to_account_info(),
     };
     let cpi_program = ctx.accounts.token_program.to_account_info();
