@@ -9,10 +9,9 @@ pub struct Config {
 }
 
 impl Config {
-    pub const SEED: &'static [u8] = b"config";
+    pub const SEED: &'static [u8] = b"config_v2";
 }
 
-// (no instruction args kept here; config is set by a dedicated initializer if needed)
 
 
 

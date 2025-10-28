@@ -25,7 +25,7 @@ pub mod spoutsolana {
     ) -> Result<()> {
         let config = &mut ctx.accounts.config;
         config.authority = authority;
-        config.bump = *ctx.bumps.get("config").unwrap();
+        config.bump = ctx.bumps.config;
         Ok(())
     }
 
@@ -102,9 +102,9 @@ pub struct InitializeKycMint<'info> {
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    /// CHECK: Metaplex Token Metadata program
-    #[account(address = mpl_token_metadata::ID)]
-    pub token_metadata_program: UncheckedAccount<'info>,
+    // /// CHECK: Metaplex Token Metadata program
+    // #[account(address = mpl_token_metadata::ID)]
+    // pub token_metadata_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }

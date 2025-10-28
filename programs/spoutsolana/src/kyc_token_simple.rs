@@ -3,8 +3,8 @@ use anchor_spl::{
     token::{mint_to, MintTo},
 };
 use crate::{sas_integration::*, InitializeKycMint, MintToKycUser};
-use mpl_token_metadata::instruction::create_metadata_accounts_v3;
-use mpl_token_metadata::state::DataV2;
+// use mpl_token_metadata::instruction::create_metadata_accounts_v3;
+// use mpl_token_metadata::state::DataV2;
 use std::time::{SystemTime, UNIX_EPOCH};
 use anchor_spl::token::spl_token::state::Mint as SplMint;
 
@@ -91,54 +91,8 @@ pub fn initialize_kyc_mint(
 ) -> Result<()> {
     // Mint is initialized by Anchor with the constraints specified in InitializeKycMint
 
-    // Create Metaplex Metadata account for the mint
-    let metadata_seeds = &[
-        b"metadata",
-        mpl_token_metadata::ID.as_ref(),
-        ctx.accounts.mint.key().as_ref(),
-    ];
-    let (metadata_pda, _bump) = Pubkey::find_program_address(metadata_seeds, &mpl_token_metadata::ID);
-
-    let data = DataV2 {
-        name,
-        symbol,
-        uri,
-        seller_fee_basis_points: 0,
-        creators: None,
-        collection: None,
-        uses: None,
-    };
-
-    let ix = create_metadata_accounts_v3(
-        mpl_token_metadata::ID,
-        metadata_pda,
-        ctx.accounts.mint.key(),
-        ctx.accounts.program_authority.key(),
-        ctx.accounts.authority.key(),
-        ctx.accounts.program_authority.key(),
-        data,
-        true,
-        true,
-        None,
-    );
-
-    // Sign as program authority PDA
-    let bump_seed = [ctx.bumps.program_authority];
-    let seeds: &[&[u8]] = &[b"program_authority", ctx.accounts.mint.key().as_ref(), &bump_seed];
-    let signer_seeds = &[seeds];
-
-    anchor_lang::solana_program::program::invoke_signed(
-        &ix,
-        &[
-            ctx.accounts.token_metadata_program.to_account_info(),
-            ctx.accounts.mint.to_account_info(),
-            ctx.accounts.program_authority.to_account_info(),
-            ctx.accounts.authority.to_account_info(),
-            ctx.accounts.system_program.to_account_info(),
-            ctx.accounts.rent.to_account_info(),
-        ],
-        signer_seeds,
-    )?;
+    // TODO: Add Metaplex metadata creation here
+    msg!("Created token: {} ({})", name, symbol);
 
     Ok(())
 }
@@ -168,7 +122,8 @@ pub fn mint_to_kyc_user(
     
     // Create seeds array for PDA signing
     let bump_seed = [ctx.bumps.program_authority];
-    let seeds: &[&[u8]] = &[b"program_authority", ctx.accounts.mint.key().as_ref(), &bump_seed];
+    let mint_key = ctx.accounts.mint.key();
+    let seeds: &[&[u8]] = &[b"program_authority", mint_key.as_ref(), &bump_seed];
     let signer_seeds = &[seeds];
     
     // Mint tokens using CPI
