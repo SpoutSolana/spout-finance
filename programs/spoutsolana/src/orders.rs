@@ -105,54 +105,37 @@ pub fn get_oracle_price(
     Ok((price_with_decimals, oracle_price.timestamp))
 }
 
-// Verify KYC status using SAS attestation
+// Verify KYC status against SAS by PDA and owner checks
 pub fn verify_kyc_status(
     user: &Pubkey,
     attestation_account: &AccountInfo,
     credential_account: &AccountInfo,
     schema_account: &AccountInfo,
 ) -> Result<bool> {
-    // Check if attestation account exists and has data
     if attestation_account.data_is_empty() {
         msg!("Attestation account is empty");
         return Ok(false);
     }
-    
-    // Deserialize attestation account data
-    let attestation_data = attestation_account.data.borrow();
-    
-    // Deserialize the attestation
-    let attestation = match SasAttestation::try_from_slice(&attestation_data) {
-        Ok(att) => {
-            msg!("Attestation deserialized successfully");
-            msg!("Credential: {}", att.credential);
-            msg!("Schema: {}", att.schema);
-            msg!("Nonce: {}", att.nonce);
-            msg!("Expiry: {}", att.expiry);
-            att
-        },
-        Err(e) => {
-            msg!("Failed to deserialize attestation: {:?}", e);
-            return Ok(false);
-        },
-    };
-    
-    // Verify the nonce matches the user address
-    if attestation.nonce != *user {
-        msg!("Nonce mismatch: expected {}, got {}", user, attestation.nonce);
+
+    // Enforce SAS program owns the attestation account
+    let sas_program = Pubkey::from_str(sas_integration::SAS_PROGRAM_ID).map_err(|_| ErrorCode::KycVerificationFailed)?;
+    if attestation_account.owner != &sas_program {
+        msg!("Attestation not owned by SAS program");
         return Ok(false);
     }
-    
-    // Check if attestation is expired
-    let current_timestamp = Clock::get()?.unix_timestamp;
-    
-    if current_timestamp >= attestation.expiry {
-        msg!("Attestation expired");
+
+    // Derive expected PDA using SAS seeds: credential + schema + nonce(user)
+    let (expected_pda, _) = sas_integration::derive_attestation_pda(
+        &credential_account.key(),
+        &schema_account.key(),
+        user,
+    );
+
+    if attestation_account.key() != expected_pda {
+        msg!("Attestation PDA mismatch. Expected {}", expected_pda);
         return Ok(false);
     }
-    
-    // For now, return true if the attestation exists and nonce matches
-    // In production, you would properly parse the KYC status from the data field
+
     Ok(true)
 }
 
@@ -342,14 +325,14 @@ pub fn sell_asset_manual(
     asset_amount: u64,
     manual_price: u64,
 ) -> Result<()> {
-    // Skip KYC verification for manual testing
-    // let is_verified = verify_kyc_status(
-    //     &ctx.accounts.user.key(),
-    //     &ctx.accounts.attestation_account,
-    //     &ctx.accounts.credential_account,
-    //     &ctx.accounts.schema_account,
-    // )?;
-    // require!(is_verified, ErrorCode::KycVerificationFailed);
+    // Verify KYC status using SAS attestation (same as buy)
+    let is_verified = verify_kyc_status(
+        &ctx.accounts.user.key(),
+        &ctx.accounts.attestation_account,
+        &ctx.accounts.credential_account,
+        &ctx.accounts.schema_account,
+    )?;
+    require!(is_verified, ErrorCode::KycVerificationFailed);
 
     let price = manual_price; // expected in 6 decimals (USDC standard)
     let oracle_ts = Clock::get()?.unix_timestamp;

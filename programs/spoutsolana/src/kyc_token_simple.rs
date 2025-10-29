@@ -8,22 +8,7 @@ use crate::{sas_integration::*, InitializeKycMint, MintToKycUser};
 // Removed std::time usage; use Clock in on-chain paths when needed
 use anchor_spl::token::spl_token::state::Mint as SplMint;
 
-// Helper function to derive attestation PDA (from Rust example)
-fn derive_attestation_pda(
-    credential_pda: &Pubkey,
-    schema_pda: &Pubkey,
-    nonce: &Pubkey,
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"attestation",
-            &credential_pda.to_bytes(),
-            &schema_pda.to_bytes(),
-            &nonce.to_bytes(),
-        ],
-        &SAS_PROGRAM_ID.parse::<Pubkey>().unwrap(),
-    )
-}
+// Use shared PDA helper from sas_integration
 
 // Verify attestation function (adapted from Rust example)
 fn verify_attestation(
@@ -32,61 +17,24 @@ fn verify_attestation(
     credential_pda: &Pubkey,
     attestation_account: &AccountInfo,
 ) -> Result<bool> {
-    // Check if attestation account exists and has data
     if attestation_account.data_is_empty() {
         return Ok(false);
     }
-    
-    // Skip PDA derivation check for now - just verify the account exists and has data
-    // The client is responsible for providing the correct attestation account
-    msg!("Using provided attestation account: {}", attestation_account.key());
-    
-    // Deserialize attestation account data
-    let attestation_data = attestation_account.data.borrow();
-    
-    // Deserialize the attestation (SasAttestation::try_from_slice handles the discriminator)
-    let attestation = match SasAttestation::try_from_slice(&attestation_data) {
-        Ok(att) => {
-            msg!("Attestation deserialized successfully");
-            msg!("Credential: {}", att.credential);
-            msg!("Schema: {}", att.schema);
-            msg!("Nonce: {}", att.nonce);
-            msg!("Expiry: {}", att.expiry);
-            msg!("Data length: {}", att.data.len());
-            att
-        },
-        Err(e) => {
-            msg!("Failed to deserialize attestation: {:?}", e);
-            return Ok(false);
-        },
-    };
-    
-    // Check if attestation is expired (temporarily disabled due to time handling issues)
-    // Use Clock::get()?.unix_timestamp for on-chain timestamps when needed
-    
-    // if current_timestamp >= attestation.expiry {
-    //     return Ok(false);
-    // }
-    
-    // Verify the nonce matches the user address
-    if attestation.nonce != *user_address {
-        msg!("Nonce mismatch: expected {}, got {}", user_address, attestation.nonce);
+
+    // Owner must be SAS program
+    let sas_program = SAS_PROGRAM_ID.parse::<Pubkey>().unwrap();
+    if attestation_account.owner != &sas_program {
+        msg!("Attestation not owned by SAS program");
         return Ok(false);
     }
-    
-    // Check KYC status from attestation data
-    // For now, we'll assume that if the attestation exists and the nonce matches, the user is verified
-    // In a production system, you would properly parse the KYC status from the data field
-    // Based on our schema, it should be [1, 0] for kycCompleted: 1
-    // if attestation.data.len() < 1 {
-    //     return Ok(false);
-    // }
-    
-    // Check if kycCompleted is true (1)
-    // let kyc_completed = attestation.data[0] == 1;
-    
-    // For now, return true if the attestation exists and nonce matches
-    // This means the user has been verified by the SAS system
+
+    // PDA must match SAS seeds: credential + schema + nonce(user)
+    let (expected_pda, _) = crate::sas_integration::derive_attestation_pda(credential_pda, schema_pda, user_address);
+    if attestation_account.key() != expected_pda {
+        msg!("Attestation PDA mismatch. Expected {}", expected_pda);
+        return Ok(false);
+    }
+
     Ok(true)
 }
 
