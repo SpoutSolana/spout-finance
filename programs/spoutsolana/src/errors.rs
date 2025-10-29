@@ -27,6 +27,16 @@ pub enum ErrorCode {
     InvalidCredentialData,
     #[msg("Account not initialized")] 
     AccountNotInitialized,
+    #[msg("Invalid ticker")] 
+    InvalidTicker,
+    #[msg("Invalid price feed")] 
+    InvalidPriceFeed,
+    #[msg("Price not found")] 
+    PriceNotFound,
+    #[msg("Stale price")] 
+    StalePrice,
+    #[msg("Low confidence price")] 
+    LowConfidencePrice,
 }
 
 

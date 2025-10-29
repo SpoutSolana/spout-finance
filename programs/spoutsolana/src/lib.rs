@@ -7,6 +7,7 @@ pub mod errors;
 pub mod state;
 pub mod kyc_token_simple;
 pub mod sas_integration;
+pub mod orders;
 
 use crate::errors::ErrorCode;
 use crate::state::*;
@@ -47,6 +48,23 @@ pub mod spoutsolana {
     ) -> Result<()> {
         kyc_token_simple::mint_to_kyc_user(ctx, recipient, amount)
     }
+
+    // Order instructions - Temporarily disabled due to Anchor macro issues
+    // pub fn buy_asset(
+    //     ctx: Context<orders::BuyAsset>,
+    //     ticker: String,
+    //     usdc_amount: u64,
+    // ) -> Result<()> {
+    //     orders::buy_asset(ctx, ticker, usdc_amount)
+    // }
+
+    // pub fn sell_asset(
+    //     ctx: Context<orders::SellAsset>,
+    //     ticker: String,
+    //     asset_amount: u64,
+    // ) -> Result<()> {
+    //     orders::sell_asset(ctx, ticker, asset_amount)
+    // }
 }
 
 // Initialize Config account
@@ -158,6 +176,123 @@ pub struct MintToKycUser<'info> {
 
     #[account(mut)]
     pub payer: Signer<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+// Order account structures
+#[derive(Accounts)]
+pub struct BuyAsset<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = user,
+    )]
+    pub user_usdc_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        init_if_needed,
+        payer = user,
+        space = orders::OrderEvents::SPACE,
+        seeds = [orders::OrderEvents::SEED],
+        bump,
+    )]
+    pub order_events: Account<'info, orders::OrderEvents>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = orders_authority,
+    )]
+    pub orders_usdc_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        seeds = [b"orders_authority"],
+        bump,
+    )]
+    /// CHECK: This is a program-derived authority for orders
+    pub orders_authority: UncheckedAccount<'info>,
+    
+    /// CHECK: USDC mint
+    pub usdc_mint: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS attestation account
+    pub attestation_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS schema account
+    pub schema_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS credential account
+    pub credential_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+    
+    /// CHECK: Pyth price feed account
+    pub price_feed: UncheckedAccount<'info>,
+    
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct SellAsset<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = user,
+    )]
+    pub user_usdc_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        mut,
+        seeds = [orders::OrderEvents::SEED],
+        bump = order_events.bump,
+    )]
+    pub order_events: Account<'info, orders::OrderEvents>,
+    
+    #[account(
+        mut,
+        associated_token::mint = usdc_mint,
+        associated_token::authority = orders_authority,
+    )]
+    pub orders_usdc_account: Account<'info, TokenAccount>,
+    
+    #[account(
+        seeds = [b"orders_authority"],
+        bump,
+    )]
+    /// CHECK: This is a program-derived authority for orders
+    pub orders_authority: UncheckedAccount<'info>,
+    
+    /// CHECK: USDC mint
+    pub usdc_mint: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS attestation account
+    pub attestation_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS schema account
+    pub schema_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS credential account
+    pub credential_account: UncheckedAccount<'info>,
+    
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+    
+    /// CHECK: Pyth price feed account
+    pub price_feed: UncheckedAccount<'info>,
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
