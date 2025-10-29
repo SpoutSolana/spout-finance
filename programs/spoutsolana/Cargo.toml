@@ -21,8 +21,8 @@ init-if-needed = ["anchor-lang/init-if-needed"]
 [dependencies]
 anchor-lang = "0.31.1"
 anchor-spl = "0.31.1"
-# Parse Pyth price feeds on-chain
-pyth-sdk-solana = "0.7"
+# Parse Pyth price feeds on-chain - temporarily disabled due to getrandom issue
+# pyth-sdk-solana = "0.7"
 # SAS integration is via CPI using its program ID; no direct crate deps
 # borsh = "0.10.3"
 # mpl-token-metadata = "4.1.2"

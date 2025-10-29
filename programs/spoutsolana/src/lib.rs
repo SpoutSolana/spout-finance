@@ -49,22 +49,24 @@ pub mod spoutsolana {
         kyc_token_simple::mint_to_kyc_user(ctx, recipient, amount)
     }
 
-    // Order instructions - Temporarily disabled due to Anchor macro issues
-    // pub fn buy_asset(
-    //     ctx: Context<orders::BuyAsset>,
-    //     ticker: String,
-    //     usdc_amount: u64,
-    // ) -> Result<()> {
-    //     orders::buy_asset(ctx, ticker, usdc_amount)
-    // }
+    // Manual-price buy (enabled for initial on-chain event test)
+    pub fn buy_asset_manual(
+        ctx: Context<BuyAsset>,
+        ticker: String,
+        usdc_amount: u64,
+        manual_price: u64,
+    ) -> Result<()> {
+        orders::buy_asset_manual(ctx, ticker, usdc_amount, manual_price)
+    }
 
-    // pub fn sell_asset(
-    //     ctx: Context<orders::SellAsset>,
-    //     ticker: String,
-    //     asset_amount: u64,
-    // ) -> Result<()> {
-    //     orders::sell_asset(ctx, ticker, asset_amount)
-    // }
+    // Initialize the OrderEvents PDA with full space to avoid realloc in pushes
+    pub fn initialize_order_events(ctx: Context<InitializeOrderEvents>) -> Result<()> {
+        let events = &mut ctx.accounts.order_events;
+        events.buy_order_events = Vec::new();
+        events.sell_order_events = Vec::new();
+        events.bump = ctx.bumps.order_events;
+        Ok(())
+    }
 }
 
 // Initialize Config account
@@ -80,6 +82,20 @@ pub struct InitializeConfig<'info> {
     pub config: Account<'info, crate::state::Config>,
     #[account(mut)]
     pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+#[derive(Accounts)]
+pub struct InitializeOrderEvents<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = orders::OrderEvents::SPACE,
+        seeds = [orders::OrderEvents::SEED],
+        bump,
+    )]
+    pub order_events: Account<'info, orders::OrderEvents>,
     pub system_program: Program<'info, System>,
 }
 
@@ -188,28 +204,17 @@ pub struct BuyAsset<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = user,
-    )]
-    pub user_usdc_account: Account<'info, TokenAccount>,
+    /// CHECK: Not used in manual path
+    #[account(mut)]
+    pub user_usdc_account: UncheckedAccount<'info>,
     
-    #[account(
-        init_if_needed,
-        payer = user,
-        space = orders::OrderEvents::SPACE,
-        seeds = [orders::OrderEvents::SEED],
-        bump,
-    )]
-    pub order_events: Account<'info, orders::OrderEvents>,
+    /// CHECK: Not used in manual path; no init to avoid realloc
+    #[account(mut)]
+    pub order_events: UncheckedAccount<'info>,
     
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = orders_authority,
-    )]
-    pub orders_usdc_account: Account<'info, TokenAccount>,
+    /// CHECK: Not used in manual path
+    #[account(mut)]
+    pub orders_usdc_account: UncheckedAccount<'info>,
     
     #[account(
         seeds = [b"orders_authority"],
@@ -218,7 +223,7 @@ pub struct BuyAsset<'info> {
     /// CHECK: This is a program-derived authority for orders
     pub orders_authority: UncheckedAccount<'info>,
     
-    /// CHECK: USDC mint
+    /// CHECK: USDC mint (unused in manual path)
     pub usdc_mint: UncheckedAccount<'info>,
     
     /// CHECK: SAS attestation account
@@ -237,8 +242,10 @@ pub struct BuyAsset<'info> {
     /// CHECK: Pyth price feed account
     pub price_feed: UncheckedAccount<'info>,
     
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
+    /// CHECK: Unused in manual path
+    pub token_program: UncheckedAccount<'info>,
+    /// CHECK: Unused in manual path
+    pub associated_token_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 

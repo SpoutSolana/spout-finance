@@ -5,7 +5,7 @@ use anchor_spl::{
 use crate::{sas_integration::*, InitializeKycMint, MintToKycUser};
 // use mpl_token_metadata::instruction::create_metadata_accounts_v3;
 // use mpl_token_metadata::state::DataV2;
-use std::time::{SystemTime, UNIX_EPOCH};
+// Removed std::time usage; use Clock in on-chain paths when needed
 use anchor_spl::token::spl_token::state::Mint as SplMint;
 
 // Helper function to derive attestation PDA (from Rust example)
@@ -62,10 +62,7 @@ fn verify_attestation(
     };
     
     // Check if attestation is expired (temporarily disabled due to time handling issues)
-    // let current_timestamp = SystemTime::now()
-    //     .duration_since(UNIX_EPOCH)
-    //     .unwrap()
-    //     .as_secs() as i64;
+    // Use Clock::get()?.unix_timestamp for on-chain timestamps when needed
     
     // if current_timestamp >= attestation.expiry {
     //     return Ok(false);
