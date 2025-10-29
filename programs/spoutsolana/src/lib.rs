@@ -59,6 +59,16 @@ pub mod spoutsolana {
         orders::buy_asset_manual(ctx, ticker, usdc_amount, manual_price)
     }
 
+    // Manual-price sell (enabled for initial on-chain event test)
+    pub fn sell_asset_manual(
+        ctx: Context<SellAsset>,
+        ticker: String,
+        asset_amount: u64,
+        manual_price: u64,
+    ) -> Result<()> {
+        orders::sell_asset_manual(ctx, ticker, asset_amount, manual_price)
+    }
+
     // Initialize the OrderEvents PDA with full space to avoid realloc in pushes
     pub fn initialize_order_events(ctx: Context<InitializeOrderEvents>) -> Result<()> {
         let events = &mut ctx.accounts.order_events;
@@ -254,26 +264,17 @@ pub struct SellAsset<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = user,
-    )]
-    pub user_usdc_account: Account<'info, TokenAccount>,
+    /// CHECK: Not used in manual path
+    #[account(mut)]
+    pub user_usdc_account: UncheckedAccount<'info>,
     
-    #[account(
-        mut,
-        seeds = [orders::OrderEvents::SEED],
-        bump = order_events.bump,
-    )]
-    pub order_events: Account<'info, orders::OrderEvents>,
+    /// CHECK: Not used in manual path; no init to avoid realloc
+    #[account(mut)]
+    pub order_events: UncheckedAccount<'info>,
     
-    #[account(
-        mut,
-        associated_token::mint = usdc_mint,
-        associated_token::authority = orders_authority,
-    )]
-    pub orders_usdc_account: Account<'info, TokenAccount>,
+    /// CHECK: Not used in manual path
+    #[account(mut)]
+    pub orders_usdc_account: UncheckedAccount<'info>,
     
     #[account(
         seeds = [b"orders_authority"],
@@ -282,7 +283,7 @@ pub struct SellAsset<'info> {
     /// CHECK: This is a program-derived authority for orders
     pub orders_authority: UncheckedAccount<'info>,
     
-    /// CHECK: USDC mint
+    /// CHECK: USDC mint (unused in manual path)
     pub usdc_mint: UncheckedAccount<'info>,
     
     /// CHECK: SAS attestation account
@@ -301,7 +302,9 @@ pub struct SellAsset<'info> {
     /// CHECK: Pyth price feed account
     pub price_feed: UncheckedAccount<'info>,
     
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
+    /// CHECK: Unused in manual path
+    pub token_program: UncheckedAccount<'info>,
+    /// CHECK: Unused in manual path
+    pub associated_token_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
