@@ -49,7 +49,7 @@ impl OrderEvents {
     pub const SPACE: usize = 8 + // discriminator
         4 + (1000 * 200) + // buy_order_events (max 1000 orders, ~200 bytes each)
         4 + (1000 * 200) + // sell_order_events (max 1000 orders, ~200 bytes each)
-        1; // bump
+        1; // bump, which is incremented till 1 bytes (0 to 255) and checked if PDA matches
 }
 
 // Single Pyth Price Feed ID (LQD on Solana)
@@ -291,6 +291,15 @@ pub fn buy_asset_manual(
     usdc_amount: u64,
     manual_price: u64,
 ) -> Result<()> {
+    // Verify KYC status using SAS attestation
+    let is_verified = verify_kyc_status(
+        &ctx.accounts.user.key(),
+        &ctx.accounts.attestation_account,
+        &ctx.accounts.credential_account,
+        &ctx.accounts.schema_account,
+    )?;
+    require!(is_verified, ErrorCode::KycVerificationFailed);
+
     let price = manual_price; // already expected in 6 decimals (USDC standard)
     let oracle_ts = Clock::get()?.unix_timestamp;
 
