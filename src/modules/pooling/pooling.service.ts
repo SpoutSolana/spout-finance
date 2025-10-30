@@ -13,7 +13,9 @@ import {
   BorshCoder,
   EventParser,
 } from '@coral-xyz/anchor';
-import idl from './idl/order_program.json'; // your program's IDL file
+import idl from './idl/program.json'; // your program's IDL file
+import { EventDecoder, BuyOrderCreated, SellOrderCreated } from './decoder';
+import { Web3Service } from '../web3/web3.service';
 
 @Injectable()
 export class PoolingService {
@@ -21,11 +23,14 @@ export class PoolingService {
   private readonly PROGRAM_ID: PublicKey;
   private readonly connection: Connection;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private web3Service: Web3Service,
+  ) {
     // Initialize the program ID from environment variable
-    const programId = this.configService.get<string>('ORDERS_PROGRAM_ID');
+    const programId = this.configService.get<string>('SPOUT_PROGRAM_ID');
     if (!programId) {
-      throw new Error('ORDERS_PROGRAM_ID environment variable is required');
+      throw new Error('SPOUT_PROGRAM_ID environment variable is required');
     }
     this.PROGRAM_ID = new PublicKey(programId);
 
@@ -58,9 +63,8 @@ export class PoolingService {
       // Step 5. Fetch recent transaction signatures
       const signatures = await provider.connection.getSignaturesForAddress(
         this.PROGRAM_ID,
-        { limit: 5 },
+        { limit: 100 },
       );
-
       console.log("Fetched signatures:", signatures.length);
 
       // Step 6. Loop through each transaction
@@ -75,12 +79,50 @@ export class PoolingService {
 
         for (const evt of events) {
           if (evt.name === 'BuyOrderCreated') {
-            this.logger.log(`Buy order: ${JSON.stringify(evt.data)}`);
-            // TODO: store evt.data in DB
-          } else if (evt.name === 'SellOrderCreated') {
-            this.logger.log(`Sell order: ${JSON.stringify(evt.data)}`);
-            // TODO: store evt.data in DB
-          }
+            try {
+              const decodedOrder: BuyOrderCreated = EventDecoder.decodeBuyOrderCreated(evt.data);
+              
+              this.logger.log(
+                `\nNEW BUY ORDER CREATED:\n` +
+                `  User: ${decodedOrder.user.toString()}\n` +
+                `  Ticker: ${decodedOrder.ticker}\n` +
+                `  USDC Amount: ${decodedOrder.usdcAmount.toString()}\n` +
+                `  Asset Amount: ${decodedOrder.assetAmount.toString()}\n` +
+                `  Price: ${decodedOrder.price.toString()}\n` +
+                `  Oracle Timestamp: ${new Date(decodedOrder.oracleTimestamp.toNumber() * 1000).toISOString()}\n` +
+                `  Transaction: ${sigInfo.signature}`,
+              );
+
+              // Call mintToken function after logging
+              await this.web3Service.mintToken(decodedOrder);
+              
+            } catch (error) {
+              this.logger.error(`Failed to decode BuyOrderCreated event: ${error.message}`);
+            }
+          } 
+          
+          // else if (evt.name === 'SellOrderCreated') {
+          //   try {
+          //     const decodedOrder: SellOrderCreated = EventDecoder.decodeSellOrderCreated(evt.data);
+              
+          //     this.logger.log(
+          //       `\nNEW SELL ORDER CREATED:\n` +
+          //       `  User: ${decodedOrder.user.toString()}\n` +
+          //       `  Ticker: ${decodedOrder.ticker}\n` +
+          //       `  USDC Amount: ${decodedOrder.usdcAmount.toString()}\n` +
+          //       `  Asset Amount: ${decodedOrder.assetAmount.toString()}\n` +
+          //       `  Price: ${decodedOrder.price.toString()}\n` +
+          //       `  Oracle Timestamp: ${new Date(decodedOrder.oracleTimestamp.toNumber() * 1000).toISOString()}\n` +
+          //       `  Transaction: ${sigInfo.signature}`,
+          //     );
+
+          //     // Call burnToken function after logging
+          //     await this.web3Service.burnToken(decodedOrder);
+
+          //   } catch (error) {
+          //     this.logger.error(`Failed to decode SellOrderCreated event: ${error.message}`);
+          //   }
+          // }
         }
       }
 
