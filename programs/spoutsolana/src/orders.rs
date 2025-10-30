@@ -290,6 +290,17 @@ pub fn buy_asset_manual(
     let decimals = 10_u64.pow(6);
     let asset_amount = (usdc_amount * decimals) / price;
 
+    // Transfer USDC from user to orders contract (same as buy_asset)
+    let transfer_instruction = Transfer {
+        from: ctx.accounts.user_usdc_account.to_account_info(),
+        to: ctx.accounts.orders_usdc_account.to_account_info(),
+        authority: ctx.accounts.user.to_account_info(),
+    };
+
+    let cpi_program = ctx.accounts.token_program.to_account_info();
+    let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
+    transfer(cpi_ctx, usdc_amount)?;
+
     // Create order
     let order = Order {
         user: ctx.accounts.user.key(),
@@ -340,19 +351,6 @@ pub fn sell_asset_manual(
     // Calculate USDC amount
     let decimals = 10_u64.pow(6);
     let usdc_amount = (asset_amount * price) / decimals;
-
-    // Skip token transfer for manual testing
-    // let transfer_instruction = Transfer {
-    //     from: ctx.accounts.orders_usdc_account.to_account_info(),
-    //     to: ctx.accounts.user_usdc_account.to_account_info(),
-    //     authority: ctx.accounts.orders_authority.to_account_info(),
-    // };
-    // let cpi_program = ctx.accounts.token_program.to_account_info();
-    // let bump_seed = [ctx.bumps.orders_authority];
-    // let seeds: &[&[u8]] = &[b"orders_authority", &bump_seed];
-    // let signer_seeds = &[seeds];
-    // let cpi_ctx = CpiContext::new_with_signer(cpi_program, transfer_instruction, signer_seeds);
-    // transfer(cpi_ctx, usdc_amount)?;
 
     // Create order
     let order = Order {
