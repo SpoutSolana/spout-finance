@@ -22,6 +22,7 @@ export class PoolingService {
   private readonly logger = new Logger(PoolingService.name);
   private readonly PROGRAM_ID: PublicKey;
   private readonly connection: Connection;
+  private lastProcessedSignature: string | null = null;
 
   constructor(
     private configService: ConfigService,
@@ -63,7 +64,7 @@ export class PoolingService {
       // Step 5. Fetch recent transaction signatures
       const signatures = await provider.connection.getSignaturesForAddress(
         this.PROGRAM_ID,
-        { limit: 2 },
+        { limit: 10, until: this.lastProcessedSignature ?? undefined },
       );
       console.log("Fetched signatures:", signatures.length);
 
@@ -124,6 +125,13 @@ export class PoolingService {
             }
           }
         }
+      }
+
+      // Update last processed signature if we processed any transactions
+      if (signatures.length > 0) {
+        // Use the first signature (most recent) as our checkpoint for the next poll
+        this.lastProcessedSignature = signatures[0].signature;
+        this.logger.log(`Updated last processed signature: ${this.lastProcessedSignature}`);
       }
 
       this.logger.log('Poll cycle complete');

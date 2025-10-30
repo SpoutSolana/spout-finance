@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { clusterApiUrl, Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { 
-  getAssociatedTokenAddressSync
+  getAssociatedTokenAddressSync,
+  createAssociatedTokenAccountIdempotentInstruction
 } from '@solana/spl-token';
 import { AnchorProvider, Idl, Program, BN, Wallet } from '@coral-xyz/anchor';
 import { BuyOrderCreated, SellOrderCreated } from '../pooling/decoder';
@@ -75,7 +76,7 @@ export class Web3Service {
       );
       console.log(`Program Authority PDA: ${programAuthorityPda.toString()}`);
 
-      // Ensure user's associated token account (ATA) exists
+      // Ensure user's associated token account (ATA) exists (creates if needed)
       const userTokenAccount = await this.getUserAssociatedTokenAddress(userPubkey);
       console.log(`User Token Account: ${userTokenAccount.toString()}`);
 
@@ -147,7 +148,7 @@ export class Web3Service {
       );
       console.log(`Program Authority PDA: ${programAuthorityPda.toString()}`);
 
-      // Ensure user's associated token account (ATA) exists
+      // Ensure user's associated token account (ATA) exists (creates if needed)
       const userTokenAccount = await this.getUserAssociatedTokenAddress(userPubkey);
       console.log(`User Token Account: ${userTokenAccount.toString()}`);
 
@@ -226,15 +227,50 @@ export class Web3Service {
   }
 
   /**
-   * Gets the associated token address for a user
+   * Gets the associated token address for a user and creates it if it doesn't exist
    */
-  getUserAssociatedTokenAddress(userPubkey: PublicKey): PublicKey {
-    return getAssociatedTokenAddressSync(
+  async getUserAssociatedTokenAddress(userPubkey: PublicKey): Promise<PublicKey> {
+    const ata = getAssociatedTokenAddressSync(
       this.lqdPubkey,   // mint address
       userPubkey,       // owner address
       false,            // allowOwnerOffCurve (false for normal wallets)
       this.tokenProgramId, // token program ID
       this.associatedTokenProgramId // associated token program ID
     );
+
+    try {
+      // Check if ATA exists
+      const accountInfo = await this.connection.getAccountInfo(ata);
+      
+      if (!accountInfo) {
+        // ATA doesn't exist, create it
+        this.logger.log(`Creating ATA for user: ${userPubkey.toString()}`);
+        
+        const createAtaInstruction = createAssociatedTokenAccountIdempotentInstruction(
+          this.issuerKeypair.publicKey, // payer
+          ata,                          // associated token account
+          userPubkey,                   // owner
+          this.lqdPubkey,              // mint
+          this.tokenProgramId,         // token program ID
+          this.associatedTokenProgramId // associated token program ID
+        );
+
+        const transaction = new Transaction().add(createAtaInstruction);
+        
+        const signature = await this.connection.sendTransaction(transaction, [this.issuerKeypair]);
+        
+        // Wait for confirmation
+        await this.connection.confirmTransaction(signature, 'confirmed');
+        
+        this.logger.log(`ATA created successfully. Transaction: ${signature}`);
+      } else {
+        this.logger.log(`ATA already exists for user: ${userPubkey.toString()}`);
+      }
+    } catch (error) {
+      this.logger.error(`Error checking/creating ATA: ${error.message}`);
+      throw error;
+    }
+
+    return ata;
   }
 }
