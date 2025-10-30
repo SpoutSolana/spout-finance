@@ -64,7 +64,10 @@ export class PoolingService {
       // Step 5. Fetch recent transaction signatures
       const signatures = await provider.connection.getSignaturesForAddress(
         this.PROGRAM_ID,
-        { limit: 10, until: this.lastProcessedSignature ?? undefined },
+        { 
+          limit: this.lastProcessedSignature ? 5 : 1, 
+          until: this.lastProcessedSignature ?? undefined 
+        },
       );
       console.log("Fetched signatures:", signatures.length);
 
