@@ -89,7 +89,7 @@ spout-backend-solana/
 2. **Event Detection**: Pooling service detects `SellOrderCreated` event
 3. **Event Processing**: System processes the sell order details
 4. **Token Burning**: Web3 service burns the specified amount of asset tokens from user's wallet
-5. **USDC Compensation**: System automatically mints equivalent USDC tokens to user's wallet
+5. **USDC Compensation**: System automatically transfer equivalent USDC tokens to user's wallet
 6. **Compliance Verification**: Ensures all operations comply with attestation requirements
 
 ---
