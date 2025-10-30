@@ -31,14 +31,14 @@ export class PoolingService {
 
     // Step 1. Initialize connection to Solana devnet
     this.connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-    this.logger.log('✅ Solana polling service initialized');
-    this.logger.log(`🔗 Using program ID: ${this.PROGRAM_ID.toString()}`);
+    this.logger.log('Solana polling service initialized');
+    this.logger.log(`Using program ID: ${this.PROGRAM_ID.toString()}`);
   }
 
   @Cron('*/15 * * * * *') // Run every 15 seconds
   async pollForOrderEvents() {
     try {
-      this.logger.debug('⏳ Polling Solana program events...');
+      this.logger.log('Polling Solana program events...');
 
       // Step 2. Create Provider
       const provider = new AnchorProvider(this.connection, {} as any, {});
@@ -46,7 +46,7 @@ export class PoolingService {
       // Step 3. Get IDL
       const idlData = idl as unknown as Idl;
       if (!idlData) {
-        this.logger.error(`❌ No IDL found for program ${this.PROGRAM_ID.toString()}`);
+        this.logger.error(`No IDL found for program ${this.PROGRAM_ID.toString()}`);
         return;
       }
 
@@ -75,16 +75,16 @@ export class PoolingService {
 
         for (const evt of events) {
           if (evt.name === 'BuyOrderCreated') {
-            this.logger.log(`📥 Buy order: ${JSON.stringify(evt.data)}`);
+            this.logger.log(`Buy order: ${JSON.stringify(evt.data)}`);
             // TODO: store evt.data in DB
           } else if (evt.name === 'SellOrderCreated') {
-            this.logger.log(`📤 Sell order: ${JSON.stringify(evt.data)}`);
+            this.logger.log(`Sell order: ${JSON.stringify(evt.data)}`);
             // TODO: store evt.data in DB
           }
         }
       }
 
-      this.logger.debug('✅ Poll cycle complete');
+      this.logger.log('Poll cycle complete');
     } catch (error) {
       this.logger.error(
         `Error while polling Solana order events: ${error.message}`,
