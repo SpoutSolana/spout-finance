@@ -1,98 +1,158 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Spout Finance - Backend (Solana)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 🏦 What is Spout Finance?
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Spout Finance is a revolutionary DeFi platform that bridges traditional investment assets with blockchain technology. Built on the lightning-fast Solana blockchain, we tokenize investment-grade U.S. bonds and equities, making them accessible as secure, yield-bearing tokens backed 1:1 by real ETFs.
 
-## Description
+### 💡 The Vision
+Transform how people invest by making high-quality traditional assets accessible, transparent, and efficient through blockchain technology - without sacrificing security or compliance.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 🏗️ Project Architecture
 
-```bash
-$ npm install
+This backend service is built with **NestJS** and handles the core blockchain interactions for the Spout Finance platform. It monitors Solana program events and automatically processes token minting/burning operations based on user orders.
+
+### 📁 Project Structure
+
+```
+spout-backend-solana/
+├── src/
+│   ├── app.module.ts              # Main application module
+│   ├── app.controller.ts          # Basic health check controller
+│   ├── app.service.ts             # Basic application service
+│   ├── main.ts                    # Application entry point
+│   └── modules/
+│       ├── pooling/               # Order monitoring & event handling
+│       │   ├── pooling.module.ts
+│       │   ├── pooling.service.ts # Event polling and processing
+│       │   ├── decoder.ts         # Event data decoding utilities
+│       │   └── idl/
+│       │       └── program.json   # Solana program IDL
+│       └── web3/                  # Blockchain interactions
+│           ├── web3.module.ts
+│           ├── web3.controller.ts # REST API endpoints
+│           ├── web3.service.ts    # Token minting/burning logic
+│           └── user-attestation.service.ts # KYC attestation handling
+├── test/                          # E2E tests
+├── package.json                   # Dependencies and scripts
+└── README.md                      # This file
 ```
 
-## Compile and run the project
+---
+
+## 🔧 Core Components
+
+### 1. **Pooling Service** (`src/modules/pooling/`)
+- **Purpose**: Monitors Solana blockchain for buy/sell order events
+- **Frequency**: Polls every 15 seconds using cron jobs
+- **Functionality**:
+  - Listens for `BuyOrderCreated` and `SellOrderCreated` events
+  - Automatically triggers token operations when orders are detected
+  - Decodes raw blockchain event data into structured formats
+
+### 2. **Web3 Service** (`src/modules/web3/`)
+- **Purpose**: Handles all blockchain interactions and token operations
+- **Key Features**:
+  - **Token Minting**: Creates new asset tokens when users place buy orders
+  - **Token Burning**: Burns asset tokens when users place sell orders
+  - **USDC Handling**: Automatically transfer USDC tokens to users after sell operations
+  - **Associated Token Account (ATA) Management**: Creates and manages user token accounts
+
+### 3. **User Attestation Service** (`src/modules/web3/`)
+- **Purpose**: Manages KYC (Know Your Customer) compliance
+- **Functionality**:
+  - Creates on-chain attestations for verified users
+  - Validates user eligibility for token operations
+  - Integrates with Solana Attestation Service (SAS)
+
+---
+
+## 🔄 How Buy/Sell Orders Work
+
+### 📈 Buy Order Process
+
+1. **User Places Buy Order**: User submits a buy order through the Solana program
+2. **Event Detection**: Pooling service detects `BuyOrderCreated` event
+3. **Event Processing**: System decodes the order details:
+   - User wallet address
+   - Asset ticker (e.g., "SPY", "QQQ")
+   - USDC amount spent
+   - Asset amount to receive
+   - Current price and oracle timestamp
+4. **Token Minting**: Web3 service automatically mints asset tokens to user's wallet
+5. **Compliance Check**: Validates user's KYC attestation before minting
+
+### 📉 Sell Order Process
+
+1. **User Places Sell Order**: User submits a sell order through the Solana program
+2. **Event Detection**: Pooling service detects `SellOrderCreated` event
+3. **Event Processing**: System processes the sell order details
+4. **Token Burning**: Web3 service burns the specified amount of asset tokens from user's wallet
+5. **USDC Compensation**: System automatically mints equivalent USDC tokens to user's wallet
+6. **Compliance Verification**: Ensures all operations comply with attestation requirements
+
+---
+
+## 🛠️ Technology Stack
+
+- **Framework**: NestJS (Node.js)
+- **Blockchain**: Solana
+- **Language**: TypeScript
+- **Key Libraries**:
+  - `@solana/web3.js` - Solana blockchain interactions
+  - `@solana/spl-token` - Token program operations
+  - `@coral-xyz/anchor` - Solana program framework
+  - `@nestjs/schedule` - Cron job scheduling
+  - `sas-lib` - Solana Attestation Service integration
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18+)
+- npm or yarn
+- Access to Solana devnet/mainnet
+- Environment variables configured
+
+### Installation
 
 ```bash
-# development
-$ npm run start
+# Clone the repository
+git clone <repository-url>
+cd spout-backend-solana
 
-# watch mode
-$ npm run start:dev
+# Install dependencies
+npm install
 
-# production mode
-$ npm run start:prod
+# Configure environment variables
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-## Run tests
+### Running the Application
 
 ```bash
-# unit tests
-$ npm run test
+# Development mode
+npm run start:dev
 
-# e2e tests
-$ npm run test:e2e
+# Production mode
+npm run build
+npm run start:prod
 
-# test coverage
-$ npm run test:cov
+# Watch mode (auto-restart on changes)
+npm run start:dev
 ```
 
-## Deployment
+## 🤝 Contributing
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+---
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+*Built with ❤️ by the Spout Finance team*
