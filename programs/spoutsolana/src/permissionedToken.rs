@@ -43,8 +43,8 @@ fn verify_attestation(
 // (Legacy v1 mint helpers removed)
 
 
-pub fn mint_to_kyc_user_2022(
-    ctx: Context<crate::MintToKycUser2022>,
+pub fn mint(
+    ctx: Context<crate::MintToKycUser>,
     recipient: Pubkey,
     amount: u64,
 ) -> Result<()> {
@@ -97,7 +97,7 @@ pub fn mint_to_kyc_user_2022(
 }
 
 // Emit an event with the SPL token account balance (on-chain read only)
-pub fn check_token_balance(
+pub fn Balance(
     ctx: Context<CheckTokenBalance>,
 ) -> Result<()> {
     let ata = &ctx.accounts.token_account;
@@ -110,7 +110,7 @@ pub fn check_token_balance(
 }
 
 // Burn tokens from a KYC-verified user (owner must sign)
-pub fn burn_from_kyc_user(
+pub fn burn(
     ctx: Context<BurnFromKycUser>,
     amount: u64,
 ) -> Result<()> {
@@ -154,8 +154,8 @@ pub fn burn_from_kyc_user(
 }
 
 // Token-2022: Transfer using PDA delegate, enforcing recipient KYC
-pub fn transfer_kyc_checked_2022(
-    ctx: Context<crate::TransferKycChecked2022>,
+pub fn forceTranfer(
+    ctx: Context<crate::ForceTransferChecked>,
     from_owner: Pubkey,
     to_recipient: Pubkey,
     amount: u64,
@@ -213,8 +213,8 @@ pub fn transfer_kyc_checked_2022(
 }
 
 // Token-2022: User-initiated transfer; sender signs; both sender and recipient must be KYC-attested
-pub fn user_transfer_kyc_checked_2022(
-    ctx: Context<crate::UserTransferKycChecked2022>,
+pub fn permissionedTransfer(
+    ctx: Context<crate::UserTransfer>,
     amount: u64,
 ) -> Result<()> {
     // Verify sender KYC

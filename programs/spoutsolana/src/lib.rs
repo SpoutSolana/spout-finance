@@ -69,53 +69,53 @@ pub mod spoutsolana {
     }
 
     // View-like helper: read SPL token account balance and emit as event
-    pub fn check_token_balance(ctx: Context<CheckTokenBalance>) -> Result<()> {
-        permissionedToken::check_token_balance(ctx)
+    pub fn balance(ctx: Context<CheckTokenBalance>) -> Result<()> {
+        permissionedToken::Balance(ctx)
     }
 
     // Burn tokens from a KYC-verified user (owner must sign)
-    pub fn burn_from_kyc_user(
+    pub fn burn(
         ctx: Context<BurnFromKycUser>,
         amount: u64,
     ) -> Result<()> {
-        permissionedToken::burn_from_kyc_user(ctx, amount)
+        permissionedToken::burn(ctx, amount)
     }
 
     // Token-2022: mint to KYC user using PDA authority (PermanentDelegate)
-    pub fn mint_to_kyc_user_2022(
-        ctx: Context<MintToKycUser2022>,
+    pub fn mint(
+        ctx: Context<MintToKycUser>,
         recipient: Pubkey,
         amount: u64,
     ) -> Result<()> {
-        permissionedToken::mint_to_kyc_user_2022(ctx, recipient, amount)
+        permissionedToken::mint(ctx, recipient, amount)
     }
 
     // Token-2022: transfer tokens only if recipient passes SAS KYC
-    pub fn transfer_kyc_checked_2022(
-        ctx: Context<TransferKycChecked2022>,
+    pub fn force_transfer(
+        ctx: Context<ForceTransferChecked>,
         from_owner: Pubkey,
         to_recipient: Pubkey,
         amount: u64,
     ) -> Result<()> {
-        permissionedToken::transfer_kyc_checked_2022(ctx, from_owner, to_recipient, amount)
+        permissionedToken::forceTranfer(ctx, from_owner, to_recipient, amount)
     }
 
     // Alias: force transfer by authority (issuer) -> same as transfer_kyc_checked_2022
     pub fn force_transfer_2022(
-        ctx: Context<TransferKycChecked2022>,
+        ctx: Context<ForceTransferChecked>,
         from_owner: Pubkey,
         to_recipient: Pubkey,
         amount: u64,
     ) -> Result<()> {
-        permissionedToken::transfer_kyc_checked_2022(ctx, from_owner, to_recipient, amount)
+        permissionedToken::forceTranfer(ctx, from_owner, to_recipient, amount)
     }
 
     // User-initiated transfer (sender signs). Both sender and recipient must be KYC attested.
-    pub fn user_transfer_kyc_checked_2022(
-        ctx: Context<UserTransferKycChecked2022>,
+    pub fn permissioned_transfer(
+        ctx: Context<UserTransfer>,
         amount: u64,
     ) -> Result<()> {
-        permissionedToken::user_transfer_kyc_checked_2022(ctx, amount)
+        permissionedToken::permissionedTransfer(ctx, amount)
     }
 }
 
@@ -311,7 +311,7 @@ pub struct BurnFromKycUser<'info> {
 
 // Token-2022: Accounts for minting to a KYC-verified user
 #[derive(Accounts)]
-pub struct MintToKycUser2022<'info> {
+pub struct MintToKycUser<'info> {
     #[account(mut)]
     pub mint: InterfaceAccount<'info, MintInterface>,
 
@@ -359,7 +359,7 @@ pub struct MintToKycUser2022<'info> {
 
 // Token-2022: Accounts for KYC-checked transfer using PDA as PermanentDelegate
 #[derive(Accounts)]
-pub struct TransferKycChecked2022<'info> {
+pub struct ForceTransferChecked<'info> {
     #[account(mut)]
     pub mint: InterfaceAccount<'info, MintInterface>,
 
@@ -408,7 +408,7 @@ pub struct TransferKycChecked2022<'info> {
 
 // Token-2022: User-initiated transfer; both sides must be attested; sender signs
 #[derive(Accounts)]
-pub struct UserTransferKycChecked2022<'info> {
+pub struct UserTransfer<'info> {
     #[account(mut)]
     pub mint: InterfaceAccount<'info, MintInterface>,
 
