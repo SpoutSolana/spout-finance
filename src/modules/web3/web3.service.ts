@@ -1,7 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { clusterApiUrl, Connection, Keypair, PublicKey } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { clusterApiUrl, Connection, Keypair, PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
+import { 
+  getAssociatedTokenAddressSync
+} from '@solana/spl-token';
 import { AnchorProvider, Idl, Program, BN, Wallet } from '@coral-xyz/anchor';
 import { BuyOrderCreated, SellOrderCreated } from '../pooling/decoder';
 import rwaIdl from '../pooling/idl/program.json';
@@ -14,6 +16,8 @@ export class Web3Service {
   private readonly sasProgramId: PublicKey;
   private readonly lqdPubkey: PublicKey;
   private readonly spoutProgramId: PublicKey;
+  private readonly tokenProgramId: PublicKey;
+  private readonly associatedTokenProgramId: PublicKey;
   private readonly configPda: PublicKey;
   private readonly issuerKeypair: Keypair;
   private readonly connection: Connection;
@@ -27,9 +31,11 @@ export class Web3Service {
     const spoutProgramIdStr = this.configService.get<string>('SPOUT_PROGRAM_ID');
     const configPdaStr = this.configService.get<string>('CONFIG_PDA');
     const issuerKeypairStr = this.configService.get<string>('ISSUER_KEYPAIR');
+    const tokenProgramIdStr = this.configService.get<string>('TOKEN_PROGRAM_ID');
+    const associatedTokenProgramIdStr = this.configService.get<string>('ASSOCIATED_TOKEN_PROGRAM_ID');
 
-    if (!credentialPdaStr || !schemaPdaStr || !sasProgramIdStr || !mintPubkeyStr || !spoutProgramIdStr || !configPdaStr || !issuerKeypairStr) {
-      throw new Error('Required environment variables are missing: CREDENTIAL_PDA, SCHEMA_PDA, SAS_PROGRAM_ID, LQD_PUBKEY, RWA_PROGRAM_ID, SPOUT_PROGRAM_ID, CONFIG_PDA, ISSUER_KEYPAIR');
+    if (!credentialPdaStr || !schemaPdaStr || !sasProgramIdStr || !mintPubkeyStr || !spoutProgramIdStr || !configPdaStr || !issuerKeypairStr || !tokenProgramIdStr || !associatedTokenProgramIdStr) {
+      throw new Error('Required environment variables are missing: CREDENTIAL_PDA, SCHEMA_PDA, SAS_PROGRAM_ID, LQD_PUBKEY, RWA_PROGRAM_ID, SPOUT_PROGRAM_ID, CONFIG_PDA, ISSUER_KEYPAIR, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID');
     }
 
     this.credentialPda = new PublicKey(credentialPdaStr);
@@ -38,6 +44,8 @@ export class Web3Service {
     this.lqdPubkey = new PublicKey(mintPubkeyStr);
     this.spoutProgramId = new PublicKey(spoutProgramIdStr);
     this.configPda = new PublicKey(configPdaStr);
+    this.tokenProgramId = new PublicKey(tokenProgramIdStr);
+    this.associatedTokenProgramId = new PublicKey(associatedTokenProgramIdStr);
     
     // Parse the issuer keypair from base58 string
     const issuerKeypairArray = JSON.parse(issuerKeypairStr);
@@ -67,8 +75,8 @@ export class Web3Service {
       );
       console.log(`Program Authority PDA: ${programAuthorityPda.toString()}`);
 
-      // Get user's associated token account (ATA)
-      const userTokenAccount = this.getUserAssociatedTokenAddress(userPubkey);
+      // Ensure user's associated token account (ATA) exists
+      const userTokenAccount = await this.getUserAssociatedTokenAddress(userPubkey);
       console.log(`User Token Account: ${userTokenAccount.toString()}`);
 
       // Minting RWA Token
@@ -78,10 +86,9 @@ export class Web3Service {
       const program = new Program(rwaIdlData, provider);
       
       // Log all values being passed to the mint function
-      this.logger.log('🔍 Mint Parameters:');
       this.logger.log(`  User Pubkey: ${userPubkey.toString()}`);
       this.logger.log(`  Asset Amount: ${buyOrder.assetAmount}`);
-      this.logger.log('📋 Accounts:');
+      this.logger.log(`  USDC Amount: ${buyOrder.usdcAmount}`);
       this.logger.log(`  Issuer: ${this.issuerKeypair.publicKey.toString()}`);
       this.logger.log(`  Config: ${this.configPda.toString()}`);
       this.logger.log(`  Mint: ${this.lqdPubkey.toString()}`);
@@ -92,7 +99,7 @@ export class Web3Service {
       this.logger.log(`  Credential Account: ${this.credentialPda.toString()}`);
       this.logger.log(`  Attestation Account: ${userAttestationPda.toString()}`);
       this.logger.log(`  SAS Program: ${this.sasProgramId.toString()}`);
-      this.logger.log(`  Token Program: ${this.spoutProgramId.toString()}`);
+      this.logger.log(`  Token Program: ${this.tokenProgramId.toString()}`);
       
       const tx = await program.methods
         .mint(userPubkey, buyOrder.assetAmount)
@@ -107,7 +114,7 @@ export class Web3Service {
           credentialAccount: this.credentialPda,
           attestationAccount: userAttestationPda,
           sasProgram: this.sasProgramId,
-          tokenProgram: this.spoutProgramId,
+          tokenProgram: this.tokenProgramId,
         })
         .signers([this.issuerKeypair])
         .rpc();
@@ -140,8 +147,8 @@ export class Web3Service {
       );
       console.log(`Program Authority PDA: ${programAuthorityPda.toString()}`);
 
-      // Get user's associated token account (ATA)
-      const userTokenAccount = this.getUserAssociatedTokenAddress(userPubkey);
+      // Ensure user's associated token account (ATA) exists
+      const userTokenAccount = await this.getUserAssociatedTokenAddress(userPubkey);
       console.log(`User Token Account: ${userTokenAccount.toString()}`);
 
       // Setup Anchor program
@@ -150,25 +157,35 @@ export class Web3Service {
       const rwaIdlData = rwaIdl as unknown as Idl;
       const program = new Program(rwaIdlData, provider);
 
+      // Log all values being passed to the burn function
+      this.logger.log(`  User Pubkey: ${userPubkey.toString()}`);
+      this.logger.log(`  Asset Amount: ${sellOrder.assetAmount}`);
+      this.logger.log(`  Issuer: ${this.issuerKeypair.publicKey.toString()}`);
+      this.logger.log(`  Config: ${this.configPda.toString()}`);
+      this.logger.log(`  Mint: ${this.lqdPubkey.toString()}`);
+      this.logger.log(`  Program Authority: ${programAuthorityPda.toString()}`);
+      this.logger.log(`  Owner Token Account: ${userTokenAccount.toString()}`);
+      this.logger.log(`  Owner: ${userPubkey.toString()}`);
+      this.logger.log(`  Token Program: ${this.tokenProgramId.toString()}`);
+
       // Execute burn instruction
       const tx = await program.methods
       .burn(new BN(sellOrder.assetAmount.toString()))
       .accounts({
+        mint: this.lqdPubkey,
+        owner: userPubkey,
+        ownerTokenAccount: userTokenAccount,
         issuer: this.issuerKeypair.publicKey,
         config: this.configPda,
-        mint: this.lqdPubkey,
         programAuthority: programAuthorityPda,
-        ownerTokenAccount: userTokenAccount,
-        schemaAccount: this.schemaPda,
-        credentialAccount: this.credentialPda,
-        attestationAccount: userAttestationPda,
-        sasProgram: this.sasProgramId,
-        tokenProgram: this.spoutProgramId,
+        tokenProgram: this.tokenProgramId,
       })
       .signers([this.issuerKeypair])
       .rpc();
 
-      this.logger.log(`🔥 Burn completed for user: ${userPubkey.toBase58()}`);
+      console.log(`Burn Transaction: ${tx}`);
+
+      this.logger.log(`Burn completed for user: ${userPubkey.toBase58()}`);
 
       this.logger.log(`User Attestation PDA: ${userAttestationPda.toString()}`);
             
@@ -189,6 +206,7 @@ export class Web3Service {
   ): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [
+        Buffer.from("attestation"),
         credentialPda.toBuffer(),
         schemaPda.toBuffer(),
         userPubkey.toBuffer(),
@@ -200,10 +218,10 @@ export class Web3Service {
   /**
    * Derives the program authority PDA
    */
-  deriveProgramAuthorityPda(mintPubkey: PublicKey, rwaProgramId: PublicKey): [PublicKey, number] {
+  deriveProgramAuthorityPda(mintPubkey: PublicKey, spoutProgramId: PublicKey): [PublicKey, number] {
     return PublicKey.findProgramAddressSync(
       [Buffer.from("program_authority"), mintPubkey.toBuffer()],
-      rwaProgramId,
+      spoutProgramId,
     );
   }
 
@@ -212,8 +230,11 @@ export class Web3Service {
    */
   getUserAssociatedTokenAddress(userPubkey: PublicKey): PublicKey {
     return getAssociatedTokenAddressSync(
-      this.lqdPubkey,
-      userPubkey
+      this.lqdPubkey,   // mint address
+      userPubkey,       // owner address
+      false,            // allowOwnerOffCurve (false for normal wallets)
+      this.tokenProgramId, // token program ID
+      this.associatedTokenProgramId // associated token program ID
     );
   }
 }

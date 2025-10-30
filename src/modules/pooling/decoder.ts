@@ -29,8 +29,8 @@ export class EventDecoder {
     return {
       user: new PublicKey(data.user),
       ticker: data.ticker,
-      usdcAmount: new BN(data.usdcAmount || data.usdc_amount),
-      assetAmount: new BN(data.assetAmount || data.asset_amount),
+      usdcAmount: new BN(data.usdcAmount || data.usdc_amount).div(new BN(1000000)),
+      assetAmount: new BN(data.assetAmount || data.asset_amount).div(new BN(1000000)),
       price: new BN(data.price),
       oracleTimestamp: new BN(data.oracleTimestamp || data.oracle_timestamp),
     };
@@ -43,8 +43,8 @@ export class EventDecoder {
     return {
       user: new PublicKey(data.user),
       ticker: data.ticker,
-      usdcAmount: new BN(data.usdcAmount || data.usdc_amount),
-      assetAmount: new BN(data.assetAmount || data.asset_amount),
+      usdcAmount: new BN(data.usdcAmount || data.usdc_amount).div(new BN(1000000)),
+      assetAmount: new BN(data.assetAmount || data.asset_amount).div(new BN(1000000)),
       price: new BN(data.price),
       oracleTimestamp: new BN(data.oracleTimestamp || data.oracle_timestamp),
     };

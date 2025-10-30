@@ -63,7 +63,7 @@ export class PoolingService {
       // Step 5. Fetch recent transaction signatures
       const signatures = await provider.connection.getSignaturesForAddress(
         this.PROGRAM_ID,
-        { limit: 100 },
+        { limit: 2 },
       );
       console.log("Fetched signatures:", signatures.length);
 
@@ -101,28 +101,28 @@ export class PoolingService {
             }
           } 
           
-          // else if (evt.name === 'SellOrderCreated') {
-          //   try {
-          //     const decodedOrder: SellOrderCreated = EventDecoder.decodeSellOrderCreated(evt.data);
+          else if (evt.name === 'SellOrderCreated') {
+            try {
+              const decodedOrder: SellOrderCreated = EventDecoder.decodeSellOrderCreated(evt.data);
               
-          //     this.logger.log(
-          //       `\nNEW SELL ORDER CREATED:\n` +
-          //       `  User: ${decodedOrder.user.toString()}\n` +
-          //       `  Ticker: ${decodedOrder.ticker}\n` +
-          //       `  USDC Amount: ${decodedOrder.usdcAmount.toString()}\n` +
-          //       `  Asset Amount: ${decodedOrder.assetAmount.toString()}\n` +
-          //       `  Price: ${decodedOrder.price.toString()}\n` +
-          //       `  Oracle Timestamp: ${new Date(decodedOrder.oracleTimestamp.toNumber() * 1000).toISOString()}\n` +
-          //       `  Transaction: ${sigInfo.signature}`,
-          //     );
+              this.logger.log(
+                `\nNEW SELL ORDER CREATED:\n` +
+                `  User: ${decodedOrder.user.toString()}\n` +
+                `  Ticker: ${decodedOrder.ticker}\n` +
+                `  USDC Amount: ${decodedOrder.usdcAmount.toString()}\n` +
+                `  Asset Amount: ${decodedOrder.assetAmount.toString()}\n` +
+                `  Price: ${decodedOrder.price.toString()}\n` +
+                `  Oracle Timestamp: ${new Date(decodedOrder.oracleTimestamp.toNumber() * 1000).toISOString()}\n` +
+                `  Transaction: ${sigInfo.signature}`,
+              );
 
-          //     // Call burnToken function after logging
-          //     await this.web3Service.burnToken(decodedOrder);
+              // Call burnToken function after logging
+              await this.web3Service.burnToken(decodedOrder);
 
-          //   } catch (error) {
-          //     this.logger.error(`Failed to decode SellOrderCreated event: ${error.message}`);
-          //   }
-          // }
+            } catch (error) {
+              this.logger.error(`Failed to decode SellOrderCreated event: ${error.message}`);
+            }
+          }
         }
       }
 

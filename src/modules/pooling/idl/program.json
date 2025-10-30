@@ -942,83 +942,13 @@
     },
     {
       "code": 6001,
-      "name": "NameTooLong",
-      "msg": "Name too long"
-    },
-    {
-      "code": 6002,
-      "name": "SymbolTooLong",
-      "msg": "Symbol too long"
-    },
-    {
-      "code": 6003,
-      "name": "SchemaIdTooLong",
-      "msg": "Schema ID too long"
-    },
-    {
-      "code": 6004,
       "name": "KycVerificationFailed",
       "msg": "KYC verification failed"
     },
     {
-      "code": 6005,
-      "name": "KycRequired",
-      "msg": "KYC required but not provided"
-    },
-    {
-      "code": 6006,
-      "name": "SchemaMismatch",
-      "msg": "Schema does not match asset's configured KYC schema"
-    },
-    {
-      "code": 6007,
-      "name": "CredentialRevoked",
-      "msg": "Credential has been revoked"
-    },
-    {
-      "code": 6008,
-      "name": "CredentialExpired",
-      "msg": "Credential has expired"
-    },
-    {
-      "code": 6009,
-      "name": "HolderMismatch",
-      "msg": "Credential holder does not match expected holder"
-    },
-    {
-      "code": 6010,
-      "name": "InvalidCredentialData",
-      "msg": "Invalid credential data"
-    },
-    {
-      "code": 6011,
-      "name": "AccountNotInitialized",
-      "msg": "Account not initialized"
-    },
-    {
-      "code": 6012,
-      "name": "InvalidTicker",
-      "msg": "Invalid ticker"
-    },
-    {
-      "code": 6013,
+      "code": 6002,
       "name": "InvalidPriceFeed",
       "msg": "Invalid price feed"
-    },
-    {
-      "code": 6014,
-      "name": "PriceNotFound",
-      "msg": "Price not found"
-    },
-    {
-      "code": 6015,
-      "name": "StalePrice",
-      "msg": "Stale price"
-    },
-    {
-      "code": 6016,
-      "name": "LowConfidencePrice",
-      "msg": "Low confidence price"
     }
   ],
   "types": [
