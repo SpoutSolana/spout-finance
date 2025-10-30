@@ -1,0 +1,9 @@
+export { HeroSection } from "./hero-section";
+export { FeaturesSection } from "./features-section";
+export { ProofOfReserveSection } from "./proof-of-reserve-section";
+export { ProofOfReserveCards } from "./proof-of-reserve-cards";
+export { InvestmentGradeSecuritySection } from "./investment-grade-security-section";
+export { TransparentReservesSection } from "./transparent-reserves-section";
+export { CallToActionSection } from "./call-to-action-section";
+export { AnimatedFooterSection } from "./animated-footer-section";
+export { HowItWorksSection } from "./how-it-works-section";

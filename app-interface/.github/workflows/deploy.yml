@@ -1,0 +1,266 @@
+name: Deploy via SSM
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Ensure jq present
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Write deploy script
+        run: |
+          cat > deploy.sh <<'EOS'
+          set -euo pipefail
+          set -x
+          umask 022
+
+          echo "== Running deploy script on EC2 =="
+
+          APP_DIR="${{ secrets.EC2_PATH }}"
+          # Use HTTPS + PAT to avoid SSH key setup on the instance
+          REPO_HTTPS="https://x-access-token:${{ secrets.GH_PAT }}@github.com/SpoutFinance/app-interface.git"
+
+          echo "== Debug info =="
+          whoami
+          pwd
+          ls -la
+          echo "== End debug =="
+
+          echo "== Disk =="
+          df -h || true
+          echo "== Inodes =="
+          df -i || true
+
+          echo "== Checking required tools =="
+          which node || echo "Node not found"
+          which npm || echo "NPM not found"
+          which git || echo "Git not found"
+          node --version || echo "Node version check failed"
+          npm --version || echo "NPM version check failed"
+
+          echo "== Environment variables =="
+          echo "NODE_ENV: $NODE_ENV"
+          echo "PATH: $PATH"
+          echo "HOME: $HOME"
+
+          # Pre-clean
+          if command -v journalctl >/dev/null 2>&1; then
+            sudo journalctl --vacuum-time=3d || true
+          fi
+          sudo rm -rf /tmp/* || true
+          rm -rf "$HOME/.npm/_cacache" "$HOME/.cache" || true
+
+          mkdir -p "$APP_DIR"
+
+          # Clone or update repo (self-healing, shallow)
+          if [ ! -d "$APP_DIR/.git" ]; then
+            rm -rf "$APP_DIR"
+            mkdir -p "$APP_DIR"
+            git clone --depth=1 "$REPO_HTTPS" "$APP_DIR"
+          else
+            cd "$APP_DIR"
+            git remote set-url origin "$REPO_HTTPS"
+            git fetch --depth=1 origin main || {
+              cd ..
+              rm -rf "$APP_DIR"
+              mkdir -p "$APP_DIR"
+              git clone --depth=1 "$REPO_HTTPS" "$APP_DIR"
+              cd "$APP_DIR"
+            }
+            git checkout -f main
+            git reset --hard origin/main
+          fi
+          cd "$APP_DIR"
+
+          # Node setup
+          echo "== Setting up Node.js =="
+          export NVM_DIR="$HOME/.nvm"
+          if [ -s "$NVM_DIR/nvm.sh" ]; then
+            echo "Loading NVM..."
+            . "$NVM_DIR/nvm.sh"
+            echo "Using LTS Node version..."
+            nvm use --lts || nvm install --lts
+          else
+            echo "NVM not found, using system Node.js"
+          fi
+
+          export TMPDIR="$HOME/.tmp-npm"
+          export npm_config_cache="$HOME/.npm"
+          mkdir -p "$TMPDIR" "$npm_config_cache"
+          export NODE_ENV=production
+          
+          echo "== Node.js setup completed =="
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+
+          # Install & build
+          echo "== Installing dependencies =="
+          if [ -f package-lock.json ]; then
+            echo "Found package-lock.json, running npm ci..."
+            npm ci --no-audit --progress=false || {
+              echo "npm ci failed, cleaning cache and retrying..."
+              npm cache clean --force
+              npm ci --no-audit --progress=false
+            }
+          else
+            echo "No package-lock.json found, running npm install..."
+            npm i --no-audit --progress=false || {
+              echo "npm install failed, cleaning cache and retrying..."
+              npm cache clean --force
+              npm i --no-audit --progress=false
+            }
+          fi
+
+          echo "== Building application =="
+          npm run build || {
+            echo "Build failed, checking for errors..."
+            echo "Node version: $(node --version)"
+            echo "NPM version: $(npm --version)"
+            echo "Available memory: $(free -h)"
+            echo "Disk space: $(df -h .)"
+            exit 1
+          }
+          echo "== Build completed =="
+          
+          echo "== Pruning dev dependencies =="
+          npm prune --omit=dev || true
+
+          # PM2
+          echo "== Setting up PM2 =="
+          if ! command -v pm2 >/dev/null 2>&1; then
+            echo "Installing PM2 globally..."
+            npm i -g pm2
+          fi
+
+          if [ ! -f ecosystem.config.js ]; then
+            echo "Creating ecosystem.config.js..."
+            cat > ecosystem.config.js <<'EOF'
+            module.exports = {
+              apps: [{
+                name: "spout-finance",
+                script: "node_modules/next/dist/bin/next",
+                args: "start -p 3000",
+                cwd: "${{ secrets.EC2_PATH }}",
+                env: { NODE_ENV: "production" }
+              }]
+            }
+            EOF
+          fi
+
+          echo "== Starting/Reloading PM2 =="
+          pm2 reload ecosystem.config.js --update-env || pm2 start ecosystem.config.js
+          pm2 save
+          echo "== PM2 setup completed =="
+
+          echo "== Final status check =="
+          pm2 status
+          echo "== Disk (post) =="
+          df -h || true
+          echo "== Inodes (post) =="
+          df -i || true
+          
+          echo "== Deployment completed successfully =="
+          EOS
+
+      - name: Wrap script into SSM parameters
+        run: |
+          {
+            printf "bash -lc 'cat > /tmp/deploy.sh <<\"EOS\"\n"
+            cat deploy.sh
+            printf "\nEOS\nbash /tmp/deploy.sh'\n"
+          } > cmd.txt
+
+          jq -Rs '{commands: [.]}' cmd.txt > params.json
+
+      - name: Upload deploy script to S3 (optional)
+        if: ${{ secrets.S3_BUCKET != '' }}
+        run: |
+          KEY="${{ secrets.S3_KEY }}"
+          if [ -z "$KEY" ]; then KEY="deploy/deploy.sh"; fi
+          echo "Uploading deploy.sh to s3://${{ secrets.S3_BUCKET }}/$KEY"
+          aws s3 cp deploy.sh "s3://${{ secrets.S3_BUCKET }}/$KEY" --sse AES256
+
+      - name: Check EC2 instance status
+        run: |
+          echo "Checking EC2 instance status..."
+          aws ec2 describe-instances \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "Reservations[0].Instances[0].State.Name" \
+            --output text
+
+      - name: Run deploy script via SSM (with live logs)
+        run: |
+          if [ -n "${{ secrets.S3_BUCKET }}" ]; then
+            KEY="${{ secrets.S3_KEY }}"; [ -z "$KEY" ] && KEY="deploy/deploy.sh"
+            echo "Using AWS-RunRemoteScript from s3://${{ secrets.S3_BUCKET }}/$KEY"
+            CID=$(aws ssm send-command \
+              --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+              --document-name "AWS-RunRemoteScript" \
+              --comment "CI deploy (remote script)" \
+              --parameters "sourceType=S3,sourceInfo={\\\"path\\\":\\\"s3://${{ secrets.S3_BUCKET }}/$KEY\\\"},commandLine=bash deploy.sh" \
+              --timeout-seconds 1800 \
+              --query "Command.CommandId" \
+              --output text)
+          else
+            echo "Using AWS-RunShellScript inline"
+            CID=$(aws ssm send-command \
+              --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+              --document-name "AWS-RunShellScript" \
+              --comment "CI deploy" \
+              --parameters file://params.json \
+              --timeout-seconds 1800 \
+              --query "Command.CommandId" \
+              --output text)
+          fi
+
+          echo "CommandId=$CID"
+
+          # Poll until the command finishes, streaming logs
+          while true; do
+            OUT=$(aws ssm get-command-invocation \
+              --command-id "$CID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --output json)
+
+            STATUS=$(echo "$OUT" | jq -r .Status)
+
+            echo "SSM status: $STATUS"
+            echo "---- STDOUT ----"
+            echo "$OUT" | jq -r .StandardOutputContent
+            echo "---- STDERR ----"
+            echo "$OUT" | jq -r .StandardErrorContent
+
+            # Print plugin-level details for better diagnostics
+            echo "---- PLUGIN DETAILS ----"
+            aws ssm list-command-invocations \
+              --command-id "$CID" \
+              --details \
+              --query 'CommandInvocations[0].CommandPlugins[].{name:Name,status:Status,resp:ResponseCode,output:OutputUrl,stdErr:StandardErrorUrl}' \
+              --output table || true
+
+            if [ "$STATUS" = "Success" ]; then
+              echo "✅ Deploy succeeded"
+              exit 0
+            fi
+
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Cancelled" ] || [ "$STATUS" = "TimedOut" ]; then
+              echo "❌ Deploy failed"
+              # Fetch final detailed failure info
+              aws ssm list-command-invocations --command-id "$CID" --details --output json || true
+              exit 1
+            fi
+
+            sleep 3
+          done
