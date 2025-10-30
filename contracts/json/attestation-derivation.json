@@ -1,0 +1,30 @@
+{
+    "credential": {
+      "name": "SpoutCredential",
+      "authority": "BD29wQ5Tj7b1MEFqquRxASsTqoN38oCrjxpU4riTZx7C",
+      "pda": "B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL",
+      "transaction_signature": "5pCcDfPBVjnsHXHpN2mcfzncuueB5AVZmE4X6TfkRNamawrNiZfcQsdtaj8bQH5U5HfaA2p8BukMEMyCmvhsHULA",
+      "network": "devnet",
+      "created_at": "2024-12-19T10:35:00.000Z"
+    },
+    "keypair": {
+      "public_key": "BD29wQ5Tj7b1MEFqquRxASsTqoN38oCrjxpU4riTZx7C",
+      "private_key_base58": "5YVaVn4orWxXTYLxMiCpy8GiLNnaAwwCm72XcrHL4LRLjMz5XQmNHwtCdPSMoBJJtfEyKtpyMULasmW2an69e5nz"
+    }, 
+    
+    
+    
+    "schema": {
+      "name": "KYCStatus",
+      "version": 1,
+      "description": "Simple KYC status",
+      "pda": "GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x",
+      "credential": "B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL",
+      "fieldNames": ["kycCompleted"],
+      "layout": [1],
+      "transaction_signature": "2dvB7oyWn3HakiZ9x3a1xvPjvrCqmooRiycTX2LPyJX2gE9NYYGYNf7p3uAtBd6wnk6cY46VK7udwiY7Zpygvkeh",
+      "network": "devnet",
+      "created_at": "2024-12-19T18:31:41.000Z"
+    }
+}
+  
