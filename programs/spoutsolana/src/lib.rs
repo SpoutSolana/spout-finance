@@ -1,11 +1,16 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, token::{Mint, Token, TokenAccount}};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+    token_interface::{Mint as MintInterface, TokenAccount as TokenAccountInterface, TokenInterface},
+    token_2022::Token2022,
+};
 
 declare_id!("EkU7xRmBhVyHdwtRZ4SJ9D3Nz6SeAvymft7nz3CL2XXB");
 
 pub mod errors;
 pub mod state;
-pub mod kyc_token_simple;
+pub mod permissionedToken;
 pub mod sas_integration;
 pub mod orders;
 
@@ -30,24 +35,9 @@ pub mod spoutsolana {
         Ok(())
     }
 
-    // KYC Token instructions
-    pub fn initialize_kyc_mint(
-        ctx: Context<InitializeKycMint>,
-        name: String,
-        symbol: String,
-        uri: String,
-        initial_supply: u64,
-    ) -> Result<()> {
-        kyc_token_simple::initialize_kyc_mint(ctx, name, symbol, uri, initial_supply)
-    }
+    // (Removed legacy v1 mint endpoints)
 
-    pub fn mint_to_kyc_user(
-        ctx: Context<MintToKycUser>,
-        recipient: Pubkey,
-        amount: u64,
-    ) -> Result<()> {
-        kyc_token_simple::mint_to_kyc_user(ctx, recipient, amount)
-    }
+    // (Token-2022 mint-to removed for now to reduce surface area)
 
     // Manual-price buy (enabled for initial on-chain event test)
     pub fn buy_asset_manual(
@@ -76,6 +66,56 @@ pub mod spoutsolana {
         events.sell_order_events = Vec::new();
         events.bump = ctx.bumps.order_events;
         Ok(())
+    }
+
+    // View-like helper: read SPL token account balance and emit as event
+    pub fn check_token_balance(ctx: Context<CheckTokenBalance>) -> Result<()> {
+        permissionedToken::check_token_balance(ctx)
+    }
+
+    // Burn tokens from a KYC-verified user (owner must sign)
+    pub fn burn_from_kyc_user(
+        ctx: Context<BurnFromKycUser>,
+        amount: u64,
+    ) -> Result<()> {
+        permissionedToken::burn_from_kyc_user(ctx, amount)
+    }
+
+    // Token-2022: mint to KYC user using PDA authority (PermanentDelegate)
+    pub fn mint_to_kyc_user_2022(
+        ctx: Context<MintToKycUser2022>,
+        recipient: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        permissionedToken::mint_to_kyc_user_2022(ctx, recipient, amount)
+    }
+
+    // Token-2022: transfer tokens only if recipient passes SAS KYC
+    pub fn transfer_kyc_checked_2022(
+        ctx: Context<TransferKycChecked2022>,
+        from_owner: Pubkey,
+        to_recipient: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        permissionedToken::transfer_kyc_checked_2022(ctx, from_owner, to_recipient, amount)
+    }
+
+    // Alias: force transfer by authority (issuer) -> same as transfer_kyc_checked_2022
+    pub fn force_transfer_2022(
+        ctx: Context<TransferKycChecked2022>,
+        from_owner: Pubkey,
+        to_recipient: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        permissionedToken::transfer_kyc_checked_2022(ctx, from_owner, to_recipient, amount)
+    }
+
+    // User-initiated transfer (sender signs). Both sender and recipient must be KYC attested.
+    pub fn user_transfer_kyc_checked_2022(
+        ctx: Context<UserTransferKycChecked2022>,
+        amount: u64,
+    ) -> Result<()> {
+        permissionedToken::user_transfer_kyc_checked_2022(ctx, amount)
     }
 }
 
@@ -111,101 +151,16 @@ pub struct InitializeOrderEvents<'info> {
 
 // Removed legacy Initialize/CreateAsset/VerifyKyc account structs
 
-// KYC Token account structures
-#[derive(Accounts)]
-pub struct InitializeKycMint<'info> {
-    #[account(
-        init,
-        payer = authority,
-        mint::decimals = 9,
-        mint::authority = program_authority,
-        mint::freeze_authority = program_authority,
-    )]
-    pub mint: Account<'info, Mint>,
-    
-    #[account(
-        init,
-        payer = authority,
-        associated_token::mint = mint,
-        associated_token::authority = authority,
-    )]
-    pub authority_token_account: Account<'info, TokenAccount>,
-    
-    #[account(
-        init,
-        payer = authority,
-        space = 8 + 32,
-        seeds = [b"program_authority", mint.key().as_ref()],
-        bump,
-    )]
-    /// CHECK: This is a program-derived authority
-    pub program_authority: UncheckedAccount<'info>,
-    
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    // /// CHECK: Metaplex Token Metadata program
-    // #[account(address = mpl_token_metadata::ID)]
-    // pub token_metadata_program: UncheckedAccount<'info>,
-    pub system_program: Program<'info, System>,
-    pub rent: Sysvar<'info, Rent>,
-}
+// (Removed legacy v1 mint account structs)
 
-#[derive(Accounts)]
-pub struct MintToKycUser<'info> {
-    #[account(mut)]
-    pub mint: Account<'info, Mint>,
-    
-    #[account(
-        init_if_needed,
-        payer = payer,
-        associated_token::mint = mint,
-        associated_token::authority = recipient,
-    )]
-    pub recipient_token_account: Account<'info, TokenAccount>,
-    
-    /// CHECK: SAS attestation account
-    pub attestation_account: UncheckedAccount<'info>,
-    
-    /// CHECK: SAS schema account
-    pub schema_account: UncheckedAccount<'info>,
-    
-    /// CHECK: SAS credential account
-    pub credential_account: UncheckedAccount<'info>,
-    
-    /// CHECK: SAS program
-    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
-    pub sas_program: UncheckedAccount<'info>,
-    
-    #[account(
-        seeds = [b"program_authority", mint.key().as_ref()],
-        bump,
-    )]
-    /// CHECK: This is a program-derived authority
-    pub program_authority: UncheckedAccount<'info>,
-    
-    /// CHECK: The recipient wallet (not a signer)
-    pub recipient: UncheckedAccount<'info>,
-    
-    /// The authorized issuer who can mint
-    #[account(mut)]
-    pub issuer: Signer<'info>,
-    
-    // Config holding the expected authority
-    #[account(
-        seeds = [crate::state::Config::SEED],
-        bump = config.bump,
-    )]
-    pub config: Account<'info, crate::state::Config>,
+// (MintToKycUser2022 removed for now)
 
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    
-    pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
-    pub system_program: Program<'info, System>,
+// Event for checking balances
+#[event]
+pub struct TokenBalanceChecked {
+    pub owner: Pubkey,
+    pub mint: Pubkey,
+    pub amount: u64,
 }
 
 // Order account structures
@@ -307,4 +262,180 @@ pub struct SellAsset<'info> {
     /// CHECK: Unused in manual path
     pub associated_token_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
+}
+
+// Accounts for balance checking
+#[derive(Accounts)]
+pub struct CheckTokenBalance<'info> {
+    pub token_program: Program<'info, Token>,
+    #[account(mut)]
+    pub token_account: Account<'info, TokenAccount>,
+}
+
+// Accounts for burning tokens from a KYC-verified user
+#[derive(Accounts)]
+pub struct BurnFromKycUser<'info> {
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, MintInterface>,
+
+    // Owner of the token account (not required to sign when burning via delegate)
+    /// CHECK: Owner public key for ATA derivation; not required to sign
+    pub owner: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub owner_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    // The authorized issuer who must approve burn operations
+    #[account(mut)]
+    pub issuer: Signer<'info>,
+
+    // Config holding the expected authority
+    #[account(
+        seeds = [crate::state::Config::SEED],
+        bump = config.bump,
+    )]
+    pub config: Account<'info, crate::state::Config>,
+
+    // Program authority PDA used as token delegate to authorize burns
+    #[account(
+        seeds = [b"program_authority", mint.key().as_ref()],
+        bump,
+    )]
+    /// CHECK: Program-derived authority; signs via seeds
+    pub program_authority: UncheckedAccount<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+// (InitializeKycMint2022 removed; mint is created off-chain)
+
+// Token-2022: Accounts for minting to a KYC-verified user
+#[derive(Accounts)]
+pub struct MintToKycUser2022<'info> {
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, MintInterface>,
+
+    #[account(mut)]
+    pub recipient_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// CHECK: SAS attestation account
+    pub attestation_account: UncheckedAccount<'info>,
+    /// CHECK: SAS schema account
+    pub schema_account: UncheckedAccount<'info>,
+    /// CHECK: SAS credential account
+    pub credential_account: UncheckedAccount<'info>,
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [b"program_authority", mint.key().as_ref()],
+        bump,
+    )]
+    /// CHECK: This is a program-derived authority
+    pub program_authority: UncheckedAccount<'info>,
+
+    /// CHECK: The recipient wallet (not a signer)
+    pub recipient: UncheckedAccount<'info>,
+
+    /// The authorized issuer who can mint
+    #[account(mut)]
+    pub issuer: Signer<'info>,
+
+    // Config holding the expected authority
+    #[account(
+        seeds = [crate::state::Config::SEED],
+        bump = config.bump,
+    )]
+    pub config: Account<'info, crate::state::Config>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+// Token-2022: Accounts for KYC-checked transfer using PDA as PermanentDelegate
+#[derive(Accounts)]
+pub struct TransferKycChecked2022<'info> {
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, MintInterface>,
+
+    /// CHECK: From wallet (owner of source token account); not required to sign
+    pub from_owner: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub from_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// CHECK: To wallet (recipient)
+    pub to_recipient: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub to_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// CHECK: SAS attestation for recipient
+    pub attestation_account: UncheckedAccount<'info>,
+    /// CHECK: SAS schema
+    pub schema_account: UncheckedAccount<'info>,
+    /// CHECK: SAS credential
+    pub credential_account: UncheckedAccount<'info>,
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [b"program_authority", mint.key().as_ref()],
+        bump,
+    )]
+    /// CHECK: Program-derived authority (PermanentDelegate)
+    pub program_authority: UncheckedAccount<'info>,
+
+    /// Issuer must authorize transfers
+    #[account(mut)]
+    pub issuer: Signer<'info>,
+
+    // Config holding the expected authority
+    #[account(
+        seeds = [crate::state::Config::SEED],
+        bump = config.bump,
+    )]
+    pub config: Account<'info, crate::state::Config>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+// Token-2022: User-initiated transfer; both sides must be attested; sender signs
+#[derive(Accounts)]
+pub struct UserTransferKycChecked2022<'info> {
+    #[account(mut)]
+    pub mint: InterfaceAccount<'info, MintInterface>,
+
+    // Sender must sign
+    #[account(mut)]
+    pub from_owner: Signer<'info>,
+
+    #[account(mut)]
+    pub from_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// CHECK: Recipient wallet
+    pub to_recipient: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub to_token_account: InterfaceAccount<'info, TokenAccountInterface>,
+
+    /// CHECK: SAS attestation for sender
+    pub sender_attestation_account: UncheckedAccount<'info>,
+    /// CHECK: SAS attestation for recipient
+    pub recipient_attestation_account: UncheckedAccount<'info>,
+    /// CHECK: SAS schema
+    pub schema_account: UncheckedAccount<'info>,
+    /// CHECK: SAS credential
+    pub credential_account: UncheckedAccount<'info>,
+    /// CHECK: SAS program
+    #[account(address = sas_integration::SAS_PROGRAM_ID.parse::<Pubkey>().unwrap())]
+    pub sas_program: UncheckedAccount<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
 }

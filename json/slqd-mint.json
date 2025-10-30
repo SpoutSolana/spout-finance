@@ -1,0 +1,16 @@
+{
+  "name": "sLQD",
+  "symbol": "sLQD",
+  "uri": "",
+  "mint": "GnYQJqqkiN5CTJhCT8Ko3Qd1JQYNj5n91gLJinamt5Xg",
+  "mintAuthority": "2zJWiswTbVFrHT7F2rxqiJJKjesFgk7RuFqfJLJTTDAq",
+  "freezeAuthority": "HXpAw6gfWFfoJFy5UhtRN7cecEUyt3mgi1LGmxKyu6Jo",
+  "payerAta": "ENk5E13181druCsu67x66SkiFS1vjeDgPZyHhNAmD9sc",
+  "tokenProgram": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  "initialMintSig": null,
+  "cluster": "https://api.devnet.solana.com",
+  "createdAt": "2025-10-29T19:19:35.067Z",
+  "lastUpdated": "2025-10-29T20:58:00Z"
+}
+
+

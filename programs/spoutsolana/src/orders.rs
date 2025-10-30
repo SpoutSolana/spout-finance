@@ -77,7 +77,7 @@ pub fn get_pyth_price(
     if price_feed_account.data_is_empty() {
         return Err(ErrorCode::InvalidPriceFeed.into());
     }
-
+    
     // Mock implementation for testing - replace with real Pyth parsing later
     let (price, expo, confidence, timestamp) = (100 * 10_u64.pow(6), -6, 10 * 10_u64.pow(6), Clock::get()?.unix_timestamp);
     
@@ -116,26 +116,26 @@ pub fn verify_kyc_status(
         msg!("Attestation account is empty");
         return Ok(false);
     }
-
+    
     // Enforce SAS program owns the attestation account
     let sas_program = Pubkey::from_str(sas_integration::SAS_PROGRAM_ID).map_err(|_| ErrorCode::KycVerificationFailed)?;
     if attestation_account.owner != &sas_program {
         msg!("Attestation not owned by SAS program");
         return Ok(false);
     }
-
+    
     // Derive expected PDA using SAS seeds: credential + schema + nonce(user)
     let (expected_pda, _) = sas_integration::derive_attestation_pda(
         &credential_account.key(),
         &schema_account.key(),
         user,
     );
-
+    
     if attestation_account.key() != expected_pda {
         msg!("Attestation PDA mismatch. Expected {}", expected_pda);
         return Ok(false);
     }
-
+    
     Ok(true)
 }
 
@@ -368,7 +368,7 @@ pub fn sell_asset_manual(
     };
 
     // Skip persisting to events storage for this smoke test
-
+    
     // Emit event
     emit!(SellOrderCreated {
         user: ctx.accounts.user.key(),
@@ -378,7 +378,7 @@ pub fn sell_asset_manual(
         price,
         oracle_timestamp: oracle_ts,
     });
-
+    
     Ok(())
 }
 
