@@ -156,8 +156,14 @@ pub fn buy_asset(
     
     require!(is_verified, ErrorCode::KycVerificationFailed);
     
-    // Get price from Pyth oracle (LQD)
-    let (price, oracle_ts) = get_oracle_price(&ctx.accounts.price_feed)?;
+    // Get price from on-chain PriceFeed PDA
+    let feed = &ctx.accounts.price_feed;
+    let price = if feed.expo < 0 {
+        feed.price / 10_u64.pow((-feed.expo) as u32)
+    } else {
+        feed.price * 10_u64.pow(feed.expo as u32)
+    };
+    let oracle_ts = feed.timestamp;
     
     // Calculate asset amount (with proper decimal handling)
     let decimals = 10_u64.pow(6); // USDC has 6 decimals
@@ -218,8 +224,14 @@ pub fn sell_asset(
     
     require!(is_verified, ErrorCode::KycVerificationFailed);
     
-    // Get price from Pyth oracle (LQD)
-    let (price, oracle_ts) = get_oracle_price(&ctx.accounts.price_feed)?;
+    // Get price from on-chain PriceFeed PDA
+    let feed = &ctx.accounts.price_feed;
+    let price = if feed.expo < 0 {
+        feed.price / 10_u64.pow((-feed.expo) as u32)
+    } else {
+        feed.price * 10_u64.pow(feed.expo as u32)
+    };
+    let oracle_ts = feed.timestamp;
     
     // Calculate USDC amount
     let decimals = 10_u64.pow(6); // USDC has 6 decimals
@@ -296,7 +308,7 @@ pub fn buy_asset_manual(
         to: ctx.accounts.orders_usdc_account.to_account_info(),
         authority: ctx.accounts.user.to_account_info(),
     };
-
+    
     let cpi_program = ctx.accounts.token_program.to_account_info();
     let cpi_ctx = CpiContext::new(cpi_program, transfer_instruction);
     transfer(cpi_ctx, usdc_amount)?;

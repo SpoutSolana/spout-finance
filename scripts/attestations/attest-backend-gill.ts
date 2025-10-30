@@ -8,25 +8,21 @@ import {
 } from "sas-lib";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
-import fs from "fs";
 
-const RPC_URL = process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com";
-const USER_PUBKEY = new PublicKey(process.env.USER_PUBKEY || "HXpAw6gfWFfoJFy5UhtRN7cecEUyt3mgi1LGmxKyu6Jo");
-
-function loadIssuer(): Keypair {
-  const kp = JSON.parse(fs.readFileSync("./json/keypair-info.json", "utf8"));
-  return Keypair.fromSecretKey(bs58.decode(kp.keypair.private_key_base58));
-}
+// HARD-CODED CONFIG (devnet)
+const RPC_URL = "https://api.devnet.solana.com";
+// Trusted issuer (backend wallet) - base58 secret for dev only
+const ISSUER_SECRET_KEY_B58 = "5YVaVn4orWxXTYLxMiCpy8GiLNnaAwwCm72XcrHL4LRLjMz5XQmNHwtCdPSMoBJJtfEyKtpyMULasmW2an69e5nz";
+// SAS PDAs
+const CREDENTIAL_PDA = new PublicKey("B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL");
+const SCHEMA_PDA = new PublicKey("GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x");
+// Target user to attest (change as needed)
+const USER_PUBKEY = new PublicKey("HXpAw6gfWFfoJFy5UhtRN7cecEUyt3mgi1LGmxKyu6Jo");
 
 async function main() {
-  const issuer = loadIssuer();
+  const issuer = Keypair.fromSecretKey(bs58.decode(ISSUER_SECRET_KEY_B58));
   const client = createSolanaClient({ urlOrMoniker: RPC_URL });
   const connection = new Connection(RPC_URL, "confirmed");
-
-  const credentialInfo = JSON.parse(fs.readFileSync("./json/credential-info.json", "utf8"));
-  const schemaInfo = JSON.parse(fs.readFileSync("./json/schema-info.json", "utf8"));
-  const CREDENTIAL_PDA = new PublicKey(credentialInfo.credential.pda);
-  const SCHEMA_PDA = new PublicKey(schemaInfo.schema.pda);
 
   const [attestationPdaRaw] = await deriveAttestationPda({
     credential: CREDENTIAL_PDA.toBase58() as any,

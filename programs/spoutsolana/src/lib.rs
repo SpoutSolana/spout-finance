@@ -13,6 +13,8 @@ pub mod state;
 pub mod permissionedToken;
 pub mod sas_integration;
 pub mod orders;
+pub mod price_feed;
+pub use price_feed::PriceFeed;
 
 use crate::errors::ErrorCode;
 use crate::state::*;
@@ -117,6 +119,21 @@ pub mod spoutsolana {
     ) -> Result<()> {
         permissionedToken::permissionedTransfer(ctx, amount)
     }
+
+    // Initialize a program-owned price feed (authority = config.authority)
+    pub fn initialize_price_feed(ctx: Context<price_feed::InitializePriceFeed>) -> Result<()> {
+        price_feed::initialize_price_feed(ctx)
+    }
+
+    // Update price feed (only config.authority)
+    pub fn update_price(
+        ctx: Context<price_feed::UpdatePrice>,
+        price: u64,
+        confidence: u64,
+        expo: i32,
+    ) -> Result<()> {
+        price_feed::update_price(ctx, price, confidence, expo)
+    }
 }
 
 // Initialize Config account
@@ -205,7 +222,7 @@ pub struct BuyAsset<'info> {
     pub sas_program: UncheckedAccount<'info>,
     
     /// CHECK: Pyth price feed account
-    pub price_feed: UncheckedAccount<'info>,
+    pub price_feed: Account<'info, crate::price_feed::PriceFeed>,
     
     /// CHECK: Unused in manual path
     pub token_program: UncheckedAccount<'info>,
@@ -255,7 +272,7 @@ pub struct SellAsset<'info> {
     pub sas_program: UncheckedAccount<'info>,
     
     /// CHECK: Pyth price feed account
-    pub price_feed: UncheckedAccount<'info>,
+    pub price_feed: Account<'info, crate::price_feed::PriceFeed>,
     
     /// CHECK: Unused in manual path
     pub token_program: UncheckedAccount<'info>,
