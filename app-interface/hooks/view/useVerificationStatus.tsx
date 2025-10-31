@@ -66,6 +66,22 @@ export function useKycStatus({
       if (msg.includes("Account not found") || msg.includes("AccountNotFound")) {
         setIsKycVerified(false);
         setError(null);
+      } else if (msg.includes("#3230000") && msg.includes("decode --")) {
+        const match = msg.match(/decode --\s*3230000\s*'([^']+)'/);
+        let friendly = "KYC read failed";
+        if (match && typeof window !== "undefined") {
+          try {
+            const decoded = atob(match[1]);
+            const parts = decoded.split("=");
+            if (parts.length === 2) {
+              friendly = `On-chain account not found at ${parts[1]}. Check credential/schema PDAs and network.`;
+            } else {
+              friendly = decoded;
+            }
+          } catch {}
+        }
+        setIsKycVerified(false);
+        setError(friendly);
       } else {
         setIsKycVerified(false);
         setError(msg || "Failed to check KYC");

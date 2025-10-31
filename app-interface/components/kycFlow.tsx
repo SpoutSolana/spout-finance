@@ -18,9 +18,13 @@ interface KYCFlowProps {
 
 export default function KYCFlow({ credentialPda, schemaPda, targetUser }: KYCFlowProps) {
   const { publicKey, connected } = useWallet();
-  // Default to wallet publicKey if not provided
-  const credPda = credentialPda ?? new PublicKey("B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL"); // can change to undefined if you want required
-  const schPda = schemaPda ?? new PublicKey("GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x");
+  // Resolve PDAs from props -> env -> defaults
+  const envCred = process.env.NEXT_PUBLIC_SAS_CREDENTIAL_PDA;
+  const envSchema = process.env.NEXT_PUBLIC_SAS_SCHEMA_PDA;
+  const credPda = credentialPda
+    ?? (envCred ? new PublicKey(envCred) : new PublicKey("B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL"));
+  const schPda = schemaPda
+    ?? (envSchema ? new PublicKey(envSchema) : new PublicKey("GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x"));
   const user = targetUser ?? publicKey;
 
   const { isKycVerified, loading, error, refetch } = useKycStatus({
@@ -135,11 +139,7 @@ export default function KYCFlow({ credentialPda, schemaPda, targetUser }: KYCFlo
             </div>
           )}
 
-          {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
-              <strong>Error:</strong> {error}
-            </div>
-          )}
+          {/* Error details intentionally hidden to avoid exposing raw codes */}
 
           <div className="flex gap-3">
             <Button
