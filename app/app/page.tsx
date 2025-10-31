@@ -295,7 +295,6 @@ function DashboardPage() {
         })}
       </div>
 
-      {/* Recent Activity - temporarily disabled for Aptos restructure */}
       {/**
       <PortfolioActivity
         activities={activities}

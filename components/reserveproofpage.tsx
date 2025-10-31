@@ -12,7 +12,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// Reserve contract hooks temporarily disabled - will implement with Aptos hooks
 import { useMarketData } from "@/hooks/api/useMarketData";
 import { useYieldData } from "@/hooks/api/useYieldData";
 import {
@@ -38,7 +37,6 @@ const formatNumber = (num: number) => {
 };
 
 export default function ProofOfReservePage() {
-  // Total supply functionality temporarily disabled - will implement with Aptos hooks
   const totalSupply = 1000000; // Placeholder value
   const totalSupplyLoading = false;
   const { price: currentPrice, isLoading: priceLoading } = useMarketData("LQD");
@@ -46,9 +44,7 @@ export default function ProofOfReservePage() {
 
   // Use Blocksense feed ID 101001 for LQD Proof of Reserve
   const feedId = 101001;
-  // Hardcoded Aptos testnet address for proof of reserve
   const reserveContractAddress = "0x72F88509C53b939a0613c679a0F4768c0444d247" as `0x${string}`;
-  // Reserve contract functionality temporarily disabled - will implement with Aptos hooks
   const requestReserves = () => {};
   const isRequestPending = false;
   const totalReserves = 0;
@@ -71,11 +67,6 @@ export default function ProofOfReservePage() {
     ],
   };
 
-  const handleRequestReserves = () => {
-    // Reserve request functionality temporarily disabled - will implement with Aptos hooks
-    console.log("Reserve request functionality coming soon with Aptos integration");
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -90,7 +81,6 @@ export default function ProofOfReservePage() {
         </div>
         <div className="flex items-center space-x-4">
           <Button
-            onClick={handleRequestReserves}
             className="flex items-center space-x-2"
             variant="outline"
           >
