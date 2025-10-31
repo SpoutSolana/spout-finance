@@ -1,5 +1,5 @@
 {
-  "name": "web3-ui-starter-pack",
+  "name": "@spout/app-interface",
   "version": "2.1.0",
   "description": "A full-stack dApp starter built on Ethereum (Solidity) with Next.js (React).",
   "main": "index.js",

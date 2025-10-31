@@ -15,7 +15,7 @@ import {
 export default function ProfileTabs() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialTab = searchParams?.get("tab") || "profile";
+  const initialTab = searchParams?.get("tab") || "kyc"; // default to KYC
   const [tab, setTab] = useState(initialTab);
 
   // Keep tab in sync with URL

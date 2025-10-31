@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
+import { useQuery } from "@tanstack/react-query";
 
 export type UseTokenBalanceResult = {
   amountRaw: string | null;
@@ -15,11 +16,6 @@ export type UseTokenBalanceResult = {
 // Token-2022 balance hook; pass ownerIsPda=true if the owner is a PDA
 export function useBalanceToken(mint: PublicKey | null, owner: PublicKey | null, ownerIsPda = false): UseTokenBalanceResult {
   const { connection } = useConnection();
-  const [amountRaw, setAmountRaw] = useState<string | null>(null);
-  const [decimals, setDecimals] = useState<number | null>(null);
-  const [amountUi, setAmountUi] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const ataPromise = useMemo(() => {
     if (!mint || !owner) return null;
@@ -32,26 +28,54 @@ export function useBalanceToken(mint: PublicKey | null, owner: PublicKey | null,
     );
   }, [mint, owner, ownerIsPda]);
 
-  const fetchBalance = useCallback(async () => {
-    if (!ataPromise) { setAmountRaw(null); setAmountUi(null); setDecimals(null); return; }
-    setIsLoading(true); setError(null);
-    try {
-      const ata = await ataPromise;
-      const { value } = await connection.getTokenAccountBalance(ata, "confirmed");
-      // Force UI to use 12-decimal display for SLQD
-      setAmountRaw(value.amount);
-      setDecimals(12);
-      const ui = Number(value.amount) / 1_000_000_000_000; // 1e12
-      setAmountUi(isFinite(ui) ? ui.toString() : "0");
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to fetch token balance");
-      setAmountRaw(null); setAmountUi(null); setDecimals(null);
-    } finally { setIsLoading(false); }
-  }, [connection, ataPromise]);
+  const mintKey = useMemo(() => mint?.toBase58() || null, [mint]);
+  const ownerKey = useMemo(() => owner?.toBase58() || null, [owner]);
 
-  useEffect(() => { if (mint && owner) fetchBalance(); }, [mint, owner, fetchBalance]);
+  const shouldFetch = useMemo(() => {
+    return !!(mint && owner && ataPromise);
+  }, [mint, owner, ataPromise]);
 
-  return { amountRaw, decimals, amountUi, isLoading, error, refetch: fetchBalance };
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["balanceToken", mintKey, ownerKey, ownerIsPda],
+    queryFn: async () => {
+      if (!ataPromise || !connection) {
+        return { amountRaw: null, decimals: null, amountUi: null };
+      }
+      
+      try {
+        const ata = await ataPromise;
+        const { value } = await connection.getTokenAccountBalance(ata, "confirmed");
+        // Force UI to use 12-decimal display for SLQD
+        const ui = Number(value.amount) / 1_000_000_000_000; // 1e12
+        return {
+          amountRaw: value.amount,
+          decimals: 12,
+          amountUi: isFinite(ui) ? ui.toString() : "0",
+        };
+      } catch (e: any) {
+        throw new Error(e?.message ?? "Failed to fetch token balance");
+      }
+    },
+    enabled: shouldFetch,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    refetchInterval: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  });
+
+  return {
+    amountRaw: data?.amountRaw ?? null,
+    decimals: data?.decimals ?? null,
+    amountUi: data?.amountUi ?? null,
+    isLoading,
+    error: error ? (error as Error).message : null,
+    refetch: async () => {
+      await refetch();
+    },
+  };
 }
 
 export default useBalanceToken;

@@ -58,10 +58,10 @@ export default function PortfolioHoldings({
           {holdings.map((holding) => (
             <div
               key={holding.symbol}
-              className="flex items-center justify-between p-6 bg-slate-50 rounded-none hover:bg-slate-100 transition-colors"
+              className="flex items-center gap-2 p-6 bg-slate-50 rounded-none hover:bg-slate-100 transition-colors"
             >
-              <div className="flex items-center space-x-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-none flex items-center justify-center relative overflow-hidden">
+              <div className="flex items-center space-x-4 flex-1 min-w-0">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-none flex items-center justify-center relative overflow-hidden flex-shrink-0">
                   {holding.symbol === "SLQD" ? (
                     <Image
                       src="/SLQD.png"
@@ -76,30 +76,30 @@ export default function PortfolioHoldings({
                     </span>
                   )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-semibold text-lg">{holding.symbol}</h3>
                   <p className="text-sm text-gray-600">{holding.name}</p>
                   <p className="text-xs text-gray-500">
                     {formatNumber(holding.shares)} shares @ $
-                    {holding.currentPrice}
+                    {Number(holding.currentPrice || 0).toFixed(2)}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-lg">
-                  ${holding.value.toLocaleString()}
+              <div className="text-right w-[150px] font-mono flex-shrink-0">
+                <p className="font-semibold text-lg tabular-nums whitespace-nowrap">
+                  ${Number(holding.value || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 </p>
                 <p
-                  className={`text-sm font-medium ${holding.dayChange >= 0 ? "text-green-600" : "text-red-600"}`}
+                  className={`text-sm font-medium tabular-nums whitespace-nowrap ${holding.dayChange >= 0 ? "text-green-600" : "text-red-600"}`}
                 >
                   {holding.dayChange >= 0 ? "+" : ""}
                   {holding.dayChange.toFixed(3)}%
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 tabular-nums whitespace-nowrap">
                   {holding.allocation}% of portfolio
                 </p>
               </div>
-              <div className="flex gap-2 ml-4">
+              <div className="flex gap-2 flex-shrink-0">
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
