@@ -261,21 +261,6 @@ await program.methods.updatePrice(new BN(111_820_000), new BN(1000), -6).account
 - Frontend hooks in `scripts/orders/use-transaction-history.ts` and `useBuyAssetManual` patterns show how to manually build instructions with Borsh to bypass IDL issues.
 - Backend scripts hardcode devnet constants for clarity. Update `json/` files (`keypair-info.json`, `slqd-mint-2022.json`, `usdc-mint.json`, `schema-info.json`, etc.) as sources of truth.
 
----
-
-## Checklist to Go Live on Devnet
-- [ ] Build and deploy program
-- [ ] Initialize `config` and set `authority`
-- [ ] Create sLQD Token‑2022 mint (6 decimals); set PermanentDelegate to `program_authority` PDA
-- [ ] Initialize `price_feed`; set price via `update_price`
-- [ ] Create treasury USDC ATA for `CONFIG_PDA`
-- [ ] Attest users via SAS; verify attestation PDA derivation
-- [ ] Fund users with USDC; verify ATAs
-- [ ] Execute `buy_asset_manual`/`sell_asset_manual`; verify events
-- [ ] Switch to oracle `buy_asset`/`sell_asset` once feed confirmed
-
----
-
 ## References
 - `programs/spoutsolana/src/orders.rs`: order logic and event emission
 - `programs/spoutsolana/src/price_feed.rs`: price feed account and handlers
