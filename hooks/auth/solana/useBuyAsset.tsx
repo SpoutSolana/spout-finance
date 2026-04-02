@@ -7,7 +7,7 @@ import { BN } from "@coral-xyz/anchor";
 
 const PROGRAM_ID = new PublicKey("EkU7xRmBhVyHdwtRZ4SJ9D3Nz6SeAvymft7nz3CL2XXB");
 const ORDER_EVENTS_PDA = new PublicKey("8Xk151dxP3vs9tiR64hPRqNzjrGojvVqWz2vye2tMsrM");
-const USDC_MINT = new PublicKey("Bd8tBm8WNPhmW5FjvAkisw4C9G3NEE7NowEW6VUuMHjW");
+const USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
 const SAS_PROGRAM_ID = new PublicKey("22zoJMtdu4tQc2PzL74ZUT7FrwgB1Udec8DdW4yw4BdG");
 const CREDENTIAL_PDA = new PublicKey("B4PtmaDJdFQBxpvwdLB3TDXuLd69wnqXexM2uBqqfMXL");
 const SCHEMA_PDA = new PublicKey("GvJbCuyqzTiACuYwFzqZt7cEPXSeD5Nq3GeWBobFfU8x");
@@ -73,7 +73,7 @@ export function useBuyAssetManual(): UseBuyManualResult {
         console.warn('⚠️ Airdrop failed (might be on mainnet):', airdropError);
       }
 
-      const ticker = args?.ticker ?? "LQD";
+      const ticker = args?.ticker ?? "SPY";
       const usdcAmount = args?.usdcAmount ?? 1_000_000;
       const manualPrice = args?.manualPrice ?? 1_000_000;
 

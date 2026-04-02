@@ -6,30 +6,31 @@ import TradeChart from "@/components/features/trade/tradechart";
 import TradeForm from "@/components/features/trade/tradeform";
 import TransactionModal from "@/components/ui/transaction-modal";
 import { useMarketData } from "@/hooks/api/useMarketData";
+import { useChainlinkPrice } from "@/hooks/api/useChainlinkPrice";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useBalanceUSDC } from "@/hooks/view/useBalanceUSDC";
 import { useBalanceToken } from "@/hooks/view/useBalanceToken";
 import { PublicKey } from "@solana/web3.js";
 import { toPk } from "@/helpers/publicKeyConverter";
+import { usePlaceBuyOrder } from "@/hooks/auth/solana/usePlaceBuyOrder";
+import { usePlaceSellOrder } from "@/hooks/auth/solana/usePlaceSellOrder";
+import {
+  placeAlpacaOrder,
+} from "@/hooks/api/useAlpacaOrders";
+import { useBackendOrders, cancelBackendOrder } from "@/hooks/api/useBackendOrders";
 
 const MINTS: Record<string, PublicKey | null> = {
-  LQD: toPk("ChcZdMV4jwXcvZQUWHEjMqMJBu3v62up2cJqY8CUkSCj"),
-  TSLA: null,
-  AAPL: null,
-  GOLD: null,
+  SPY: toPk("8yHaFSWNAfZ8um8x1dxxb6dMf3H1DH29tsZCFoTy7QZ"),
 };
 
-const USDC_MINT = toPk("Bd8tBm8WNPhmW5FjvAkisw4C9G3NEE7NowEW6VUuMHjW"); // USDC mint (6 decimals)
+const USDC_MINT = toPk("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"); // USDC mint (6 decimals)
 
 const TOKENS = [
-  { label: "LQD", value: "LQD" },
-  { label: "TSLA", value: "TSLA" },
-  { label: "AAPL", value: "AAPL" },
-  { label: "GOLD", value: "GOLD" },
+  { label: "SPY", value: "SPY" },
 ];
 
 const TradePage = () => {
-  const [selectedToken, setSelectedToken] = useState("LQD");
+  const [selectedToken, setSelectedToken] = useState("SPY");
   const [tokenData, setTokenData] = useState<any[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
@@ -37,13 +38,18 @@ const TradePage = () => {
   const [buyUsdc, setBuyUsdc] = useState("");
   const [sellToken, setSellToken] = useState("");
   const [tradeType, setTradeType] = useState<"buy" | "sell">("buy");
+  const [orderType, setOrderType] = useState<"market" | "limit">("market");
+  const [limitPrice, setLimitPrice] = useState("");
   const [chartDataSource, setChartDataSource] = useState<"real" | "mock">(
     "real",
   );
   const [etfData, setEtfData] = useState<any>(null);
 
-  // Per-asset market data
-  const { price: mdPrice, previousClose: mdPrevClose, isLoading: mdLoading } = useMarketData(selectedToken);
+  // Chainlink Data Streams V11 price (primary source for SPY)
+  const { price: chainlinkPrice, isLoading: chainlinkLoading } = useChainlinkPrice(selectedToken);
+
+  // Alpaca market data (fallback for tokens without Chainlink feeds)
+  const { price: mdPrice, isLoading: mdLoading } = useMarketData(selectedToken);
 
   // Transaction modal state
   const [transactionModal, setTransactionModal] = useState({
@@ -54,9 +60,9 @@ const TradePage = () => {
     receivedAmount: "",
     error: "",
   });
-
   const { publicKey } = useWallet();
   const userAddress = publicKey?.toBase58() || null;
+ console.log("public key of user is:", userAddress)
 
 
   const ownerPk = useMemo(() => publicKey ?? null, [publicKey]);
@@ -76,10 +82,16 @@ const TradePage = () => {
 
   // Removed useEffect that auto-triggered balance refetch
 
-  // Disable on-chain order flow for now; keep form interactions local
-  const tokenDecimals = 9;
-  const isOrderPending = false;
-  const orderError = null as any;
+  const tokenDecimals = 6; // SPY Token-2022 uses 6 decimals
+
+  // SpoutOrders on-chain hooks
+  const { placeBuyOrder, isSubmitting: isBuySubmitting } = usePlaceBuyOrder();
+  const { placeSellOrder, isSubmitting: isSellSubmitting } = usePlaceSellOrder();
+  const [isCancelling, setIsCancelling] = useState(false);
+  const isOrderPending = isBuySubmitting || isSellSubmitting || isCancelling;
+
+  // Backend orders (polled every 15s) — used for cancel flow
+  const { orders: backendOrders, refetch: refetchBackendOrders } = useBackendOrders(userAddress);
 
   
   useEffect(() => {
@@ -119,8 +131,7 @@ const TradePage = () => {
   }, [selectedToken]);
 
   useEffect(() => {
-    // sync local state loading to hook loading for UI
-    // Special-case GOLD using Metalprice API if selected
+    // Chainlink is primary price source for SPY; Alpaca/Gold API for others
     async function loadGold() {
       setPriceLoading(true);
       try {
@@ -141,11 +152,16 @@ const TradePage = () => {
 
     if (selectedToken === "GOLD") {
       void loadGold();
+    } else if (chainlinkPrice !== null) {
+      // Use Chainlink Data Streams V11 price (SPY)
+      setPriceLoading(chainlinkLoading);
+      setCurrentPrice(chainlinkPrice);
     } else {
+      // Fallback to Alpaca for tokens without Chainlink feeds
       setPriceLoading(mdLoading);
       setCurrentPrice(mdPrice ?? null);
     }
-  }, [mdLoading, mdPrice, selectedToken]);
+  }, [mdLoading, mdPrice, chainlinkPrice, chainlinkLoading, selectedToken]);
 
   // Disable automatic token balance refetches; call refetchTokenBalance manually when needed
 
@@ -187,22 +203,15 @@ const TradePage = () => {
   const netReceiveTokens = estimatedTokens
     ? (parseFloat(estimatedTokens) * (1 - tradingFee)).toFixed(4)
     : "";
-  // Display helper for net received tokens (LQD uses 15 decimals)
-  const displayNetReceiveTokens =
-    selectedToken === "LQD" && netReceiveTokens
-      ? (parseFloat(netReceiveTokens) / 1_000_000_000_000_000).toFixed(6)
-      : netReceiveTokens;
+  const displayNetReceiveTokens = netReceiveTokens;
   const netReceiveUsdc = estimatedUsdc
     ? (parseFloat(estimatedUsdc) * (1 - tradingFee)).toFixed(2)
     : "";
 
   const handleBuy = async () => {
-    if (!userAddress || !buyUsdc || !latestPrice) return;
+    if (!userAddress || !buyUsdc || !latestPrice || !tokenMint) return;
     const usdcAmountNum = parseFloat(buyUsdc);
-    const amount = BigInt(Math.floor(usdcAmountNum * 1e6));
-
-    const estimatedTokenAmount =
-      latestPrice > 0 ? usdcAmountNum / latestPrice : 0;
+    const usdcSmallestUnits = Math.floor(usdcAmountNum * 1e6); // USDC has 6 decimals
 
     // Show transaction modal
     setTransactionModal({
@@ -214,54 +223,79 @@ const TradePage = () => {
       error: "",
     });
 
-    // Simulate success for demo
-    setBuyUsdc("");
-    setTransactionModal((prev) => ({ ...prev, status: "completed" }));
-    setTimeout(() => {
-      setTransactionModal((prev) => ({ ...prev, isOpen: false }));
-    }, 3000);
+    try {
+      // Convert limit price to 18-decimal u128 (matching oracle price_decimals)
+      // 0 = market order
+      const limitPriceU128 = orderType === "limit" && limitPrice
+        ? Math.floor(parseFloat(limitPrice) * 1e18)
+        : 0;
+
+      console.log("Order params:", {
+        orderType,
+        limitPrice,
+        limitPriceU128,
+        usdcSmallestUnits,
+        selectedToken,
+      });
+
+      // 1. Place on-chain order (escrows USDC)
+      const { signature: sig, orderId } = await placeBuyOrder({
+        ticker: selectedToken,
+        usdcAmount: usdcSmallestUnits,
+        limitPrice: limitPriceU128,
+        tokenMint,
+      });
+      console.log("Buy order placed on-chain, tx:", sig, "orderId:", orderId.toString());
+
+      // 2. Place corresponding Alpaca broker order (linked via client_order_id)
+      try {
+        const alpacaOrder = await placeAlpacaOrder({
+          symbol: selectedToken,
+          side: "buy",
+          type: orderType === "limit" ? "limit" : "market",
+          time_in_force: orderType === "limit" ? "gtc" : "day",
+          notional: usdcAmountNum,
+          limit_price: orderType === "limit" && limitPrice ? parseFloat(limitPrice) : undefined,
+          client_order_id: orderId.toString(),
+        });
+        console.log("Alpaca order placed, id:", alpacaOrder.id, "status:", alpacaOrder.status);
+        refetchBackendOrders();
+      } catch (alpacaErr: any) {
+        console.error("Alpaca order failed (on-chain order still placed):", alpacaErr.message);
+      }
+      refetchBackendOrders();
+
+      setBuyUsdc("");
+      setTransactionModal((prev) => ({ ...prev, status: "completed" }));
+      refetchUSDCBalance();
+    } catch (e: any) {
+      setTransactionModal((prev) => ({
+        ...prev,
+        status: "failed",
+        error: e?.message || "Transaction failed",
+      }));
+    }
   };
 
   const handleSell = async () => {
-    if (!userAddress || !sellToken || !latestPrice) return;
+    if (!userAddress || !sellToken || !latestPrice || !tokenMint) return;
 
-    // Validate balance before proceeding
     const sellTokenAmount = parseFloat(sellToken);
     if (sellTokenAmount > tokenBalance) {
-      console.log("❌ Sell amount exceeds balance:", {
-        sellAmount: sellTokenAmount,
-        availableBalance: tokenBalance,
-      });
-
-      // Show processing status first
       setTransactionModal({
         isOpen: true,
-        status: "waiting",
+        status: "failed",
         transactionType: "sell",
         amount: `${sellToken} ${selectedToken}`,
         receivedAmount: "",
-        error: "",
+        error: "Order exceeds balance.",
       });
-
-      // Wait 3 seconds then show the error
-      setTimeout(() => {
-        setTransactionModal((prev) => ({
-          ...prev,
-          status: "failed",
-          error:
-            "Transaction reverted: Order exceeds balance. You don't have enough SLQD tokens.",
-        }));
-      }, 3000);
-
       return;
     }
 
-    // Multiply by token decimals for amount (u128)
+    // Convert to smallest units using token decimals
     const pow = Math.pow(10, tokenDecimals || 6);
-    const tokenAmount = BigInt(Math.floor(sellTokenAmount * pow));
-
-    const estimatedUsdcAmount =
-      latestPrice > 0 ? sellTokenAmount * latestPrice : 0;
+    const assetSmallestUnits = Math.floor(sellTokenAmount * pow);
 
     // Show transaction modal
     setTransactionModal({
@@ -273,12 +307,56 @@ const TradePage = () => {
       error: "",
     });
 
-    // Simulate success for demo
-    setSellToken("");
-    setTransactionModal((prev) => ({ ...prev, status: "completed" }));
-    setTimeout(() => {
-      setTransactionModal((prev) => ({ ...prev, isOpen: false }));
-    }, 3000);
+    try {
+      const limitPriceU128 = orderType === "limit" && limitPrice
+        ? Math.floor(parseFloat(limitPrice) * 1e18)
+        : 0;
+
+      console.log("Sell order params:", {
+        orderType,
+        limitPrice,
+        limitPriceU128,
+        assetSmallestUnits,
+        selectedToken,
+      });
+
+      // 1. Place on-chain order
+      const { signature: sig, orderId } = await placeSellOrder({
+        ticker: selectedToken,
+        assetAmount: assetSmallestUnits,
+        limitPrice: limitPriceU128,
+        tokenMint,
+      });
+      console.log("Sell order placed on-chain, tx:", sig, "orderId:", orderId.toString());
+
+      // 2. Place corresponding Alpaca broker order (linked via client_order_id)
+      try {
+        const alpacaOrder = await placeAlpacaOrder({
+          symbol: selectedToken,
+          side: "sell",
+          type: orderType === "limit" ? "limit" : "market",
+          time_in_force: orderType === "limit" ? "gtc" : "day",
+          qty: sellTokenAmount,
+          limit_price: orderType === "limit" && limitPrice ? parseFloat(limitPrice) : undefined,
+          client_order_id: orderId.toString(),
+        });
+        console.log("Alpaca sell order placed, id:", alpacaOrder.id, "status:", alpacaOrder.status);
+        refetchBackendOrders();
+      } catch (alpacaErr: any) {
+        console.error("Alpaca sell order failed (on-chain order still placed):", alpacaErr.message);
+      }
+      refetchBackendOrders();
+
+      setSellToken("");
+      setTransactionModal((prev) => ({ ...prev, status: "completed" }));
+      refetchTokenBalance();
+    } catch (e: any) {
+      setTransactionModal((prev) => ({
+        ...prev,
+        status: "failed",
+        error: e?.message || "Transaction failed",
+      }));
+    }
   };
 
   const closeTransactionModal = () => {
@@ -315,6 +393,10 @@ const TradePage = () => {
         <TradeForm
         tradeType={tradeType}
         setTradeType={setTradeType}
+        orderType={orderType}
+        setOrderType={setOrderType}
+        limitPrice={limitPrice}
+        setLimitPrice={setLimitPrice}
         selectedToken={selectedToken}
         setSelectedToken={setSelectedToken}
         tokens={TOKENS}
@@ -340,6 +422,86 @@ const TradePage = () => {
         priceChange={priceChange}
         />
       </div>
+
+      {/* Open Orders (from backend /orders/{pubkey} API) — hide filled/cancelled */}
+      {backendOrders.filter((o: any) => o.status !== "filled" && o.status !== "cancelled" && o.status !== "canceled").length > 0 && (
+        <div className="border border-[#004040]/15 bg-white rounded-none shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">Open Orders</h2>
+          <div className="space-y-3">
+            {backendOrders.filter((o: any) => o.status !== "filled" && o.status !== "cancelled" && o.status !== "canceled").map((order: any) => {
+              const isBuy = order.side === "buy" || order.order_type === 0 || order.order_type === "buy";
+              const created = order.created_at ? new Date(order.created_at) : null;
+
+              return (
+                <div
+                  key={order.order_id}
+                  className="flex items-center justify-between p-4 bg-slate-50 border border-slate-200"
+                >
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`text-xs font-bold px-2 py-1 ${
+                        isBuy
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-orange-100 text-orange-800"
+                      }`}
+                    >
+                      {isBuy ? "BUY" : "SELL"}
+                    </span>
+                    {order.type && (
+                      <span
+                        className={`text-xs px-1.5 py-0.5 ${
+                          order.type === "limit"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {order.type.toUpperCase()}
+                      </span>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {order.symbol || selectedToken}
+                        {order.limit_price && (
+                          <span className="text-slate-400 ml-1">
+                            @ ${(parseFloat(order.limit_price) / 1e18).toFixed(2)}
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {order.qty ? `${order.qty} shares` : order.notional ? `$${parseFloat(order.notional).toFixed(2)}` : ""}
+                        {order.status && ` - ${order.status}`}
+                        {created && ` - ${created.toLocaleString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    disabled={isCancelling}
+                    onClick={async () => {
+                      setIsCancelling(true);
+                      try {
+                        // Cancel via backend Alpaca route using order_id
+                        await cancelBackendOrder(order.order_id);
+                        console.log("Order cancelled via backend, order_id:", order.order_id);
+
+                        refetchBackendOrders();
+                        refetchBackendOrders();
+                        refetchUSDCBalance();
+                      } catch (err: any) {
+                        console.error("Cancel failed:", err.message);
+                      } finally {
+                        setIsCancelling(false);
+                      }
+                    }}
+                    className="text-xs font-medium px-3 py-1.5 border border-red-300 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isCancelling ? "Cancelling..." : "Cancel"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Transaction Modal */}
       <TransactionModal

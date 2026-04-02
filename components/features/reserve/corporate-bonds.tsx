@@ -28,8 +28,8 @@ export function CorporateBonds({
   const corporateBondsData = {
     holdings: [
       {
-        ticker: "LQD",
-        name: "iShares iBoxx $ Investment Grade Corporate Bond ETF",
+        ticker: "SPY",
+        name: "SPDR S&P 500 ETF Trust",
         yieldRate: yieldRate,
       },
     ],

@@ -45,11 +45,11 @@ export function useBalanceToken(mint: PublicKey | null, owner: PublicKey | null,
       try {
         const ata = await ataPromise;
         const { value } = await connection.getTokenAccountBalance(ata, "confirmed");
-        // Force UI to use 12-decimal display for SLQD
-        const ui = Number(value.amount) / 1_000_000_000_000; // 1e12
+        const decimals = value.decimals;
+        const ui = Number(value.amount) / Math.pow(10, decimals);
         return {
           amountRaw: value.amount,
-          decimals: 12,
+          decimals,
           amountUi: isFinite(ui) ? ui.toString() : "0",
         };
       } catch (e: any) {

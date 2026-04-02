@@ -34,7 +34,7 @@ function DashboardPage() {
     previousClose,
     isLoading: priceLoading,
     error: priceError,
-  } = useMarketData("LQD");
+  } = useMarketData("SPY");
   // const {
   //   activities,
   //   isLoading: activitiesLoading,

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ConditionalNavbar } from "@/components/conditionalNavbar";
 import { Analytics } from "@vercel/analytics/next";
 
+
 const publicSans = Public_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -64,6 +65,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+
   return (
     <html lang="en">
       <body

@@ -5,7 +5,7 @@ export function InvestmentGradeSecuritySection() {
         Investment-Grade Security
       </h3>
       <p className="text-slate-600 leading-relaxed mb-4">
-        Each token is backed 1:1 by investment-grade bond ETFs like LQD, held by
+        Each token is backed 1:1 by ETFs like SPY, held by
         a qualified U.S. custodian. This ensures maximum security and stability
         for your investments.
       </p>

@@ -39,8 +39,8 @@ const formatNumber = (num: number) => {
 export default function ProofOfReservePage() {
   const totalSupply = 1000000; // Placeholder value
   const totalSupplyLoading = false;
-  const { price: currentPrice, isLoading: priceLoading } = useMarketData("LQD");
-  const { data: lqdYield, isLoading: lqdYieldLoading } = useYieldData("LQD");
+  const { price: currentPrice, isLoading: priceLoading } = useMarketData("SPY");
+  const { data: lqdYield, isLoading: lqdYieldLoading } = useYieldData("SPY");
 
   // Use Blocksense feed ID 101001 for LQD Proof of Reserve
   const feedId = 101001;
@@ -60,7 +60,7 @@ export default function ProofOfReservePage() {
     lastUpdated: lqdYield?.timestamp || new Date().toISOString(),
     holdings: [
       {
-        ticker: "LQD",
+        ticker: "SPY",
         name: "iShares iBoxx $ Investment Grade Corporate Bond ETF",
         yieldRate: yieldRate,
       },
@@ -149,7 +149,7 @@ export default function ProofOfReservePage() {
 
                 return (
                   <>
-                    {formatNumber(totalSupply)} LQD @ $
+                    {formatNumber(totalSupply)} SPY @ $
                     {currentPrice?.toFixed(2) || "0.00"}
                   </>
                 );
@@ -218,7 +218,7 @@ export default function ProofOfReservePage() {
                     return <span className="text-gray-400">Loading...</span>;
                   }
 
-                  return `${formatNumber(totalSupply)} LQD`;
+                  return `${formatNumber(totalSupply)} SPY`;
                 })()}
               </span>
             </div>

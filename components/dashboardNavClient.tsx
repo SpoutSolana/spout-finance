@@ -23,6 +23,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 import Image from "next/image";
 import React, { useEffect, useMemo, useState } from "react";
+import { useMarketStatus } from "@/hooks/view/useMarketStatus";
 import { Button } from "@/components/ui/button";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
@@ -222,6 +223,8 @@ export function DashboardNavbarHeaderClient() {
     return pathname.startsWith(path);
   };
 
+  const marketStatus = useMarketStatus();
+
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b bg-white px-4">
       <div className="flex items-center gap-2">
@@ -238,6 +241,11 @@ export function DashboardNavbarHeaderClient() {
         >
           Dashboard
         </Link>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className={`w-2 h-2 rounded-full ${marketStatus.isOpen ? "bg-green-500 animate-pulse" : "bg-red-400"}`} />
+        <span className="text-xs font-medium text-gray-700">US Market {marketStatus.label}</span>
+        <span className="text-[10px] text-gray-400 hidden sm:inline">{marketStatus.nextEvent}</span>
       </div>
     </header>
   );

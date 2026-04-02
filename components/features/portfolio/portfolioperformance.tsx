@@ -45,7 +45,7 @@ const PortfolioPerformance: React.FC<PortfolioPerformanceProps> = ({
 }) => {
   // Color mapping matching the original design
   const symbolColors: Record<string, string> = {
-    LQD: "hsl(217 91% 60%)", // blue-500
+    SPY: "hsl(217 91% 60%)", // blue-500
     USDC: "hsl(142 71% 45%)", // emerald-500
     TSLA: "hsl(271 91% 65%)", // purple-500
     AAPL: "hsl(25 95% 53%)", // orange-500

@@ -167,7 +167,7 @@ export const maxDuration = 10; // seconds safeguard on Vercel
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const symbol = searchParams.get("symbol") || "LQD";
+  const symbol = searchParams.get("symbol") || "SPY";
 
   console.log("🔍 Requested symbol:", symbol);
 

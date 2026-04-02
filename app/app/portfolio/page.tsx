@@ -22,24 +22,24 @@ function PortfolioPage() {
   const userAddress = publicKey?.toBase58() || null;
   const ownerPk = useMemo(() => publicKey ?? null, [publicKey]);
 
-  // sLQD mint (Token-2022)
-  const LQD_MINT = useMemo(() => new PublicKey("ChcZdMV4jwXcvZQUWHEjMqMJBu3v62up2cJqY8CUkSCj"), []);
+  // SPY mint
+  const SPY_MINT = useMemo(() => new PublicKey("8yHaFSWNAfZ8um8x1dxxb6dMf3H1DH29tsZCFoTy7QZ"), []);
   // USDC mint (classic)
-  const USDC_MINT = useMemo(() => new PublicKey("Bd8tBm8WNPhmW5FjvAkisw4C9G3NEE7NowEW6VUuMHjW"), []);
+  const USDC_MINT = useMemo(() => new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"), []);
 
   // Balances
-  const slqdBalHook = useBalanceToken(LQD_MINT, ownerPk);
+  const sspyBalHook = useBalanceToken(SPY_MINT, ownerPk);
   const usdcBalHook = useBalanceUSDC(USDC_MINT, ownerPk);
-  const lqdBal = useMemo(() => Number(slqdBalHook.amountUi ?? 0) || 0, [slqdBalHook.amountUi]);
+  const spyBal = useMemo(() => Number(sspyBalHook.amountUi ?? 0) || 0, [sspyBalHook.amountUi]);
   const usdcBal = useMemo(() => Number(usdcBalHook.amountUi ?? 0) || 0, [usdcBalHook.amountUi]);
-  const balanceLoading = slqdBalHook.isLoading || usdcBalHook.isLoading;
+  const balanceLoading = sspyBalHook.isLoading || usdcBalHook.isLoading;
 
   // Fetch per-asset market data
   const {
-    price: lqdPrice,
-    previousClose: lqdPrevClose,
-    isLoading: lqdLoading,
-  } = useMarketData("LQD");
+    price: spyPrice,
+    previousClose: spyPrevClose,
+    isLoading: spyLoading,
+  } = useMarketData("SPY");
   const {
     price: tslaPrice,
     previousClose: tslaPrevClose,
@@ -84,7 +84,7 @@ function PortfolioPage() {
     };
   }, []);
 
-  const { returns, isLoading: returnsLoading } = useReturns("LQD");
+  const { returns, isLoading: returnsLoading } = useReturns("SPY");
   const { username } = useCurrentUser();
   
   // Fetch recent activity (buy/sell orders)
@@ -123,12 +123,12 @@ function PortfolioPage() {
 
   const baseHoldings: Omit<Holding, "dayChange" | "totalReturn" | "allocation">[] = [
     {
-      symbol: "LQD",
-      name: "Spout US Corporate Bond Token",
-      shares: lqdBal,
-      avgPrice: lqdPrevClose || 0,
-      currentPrice: lqdPrice ?? 0,
-      value: lqdBal * (lqdPrice ?? 0),
+      symbol: "SPY",
+      name: "SPDR S&P 500 ETF Trust",
+      shares: spyBal,
+      avgPrice: spyPrevClose || 0,
+      currentPrice: spyPrice ?? 0,
+      value: spyBal * (spyPrice ?? 0),
     },
     {
       symbol: "USDC",
@@ -185,7 +185,7 @@ function PortfolioPage() {
   }));
 
   const isLoading =
-    balanceLoading || returnsLoading || lqdLoading || tslaLoading || aaplLoading || goldLoading || goldUsdLoading;
+    balanceLoading || returnsLoading || spyLoading || tslaLoading || aaplLoading || goldLoading || goldUsdLoading;
 
   // Function to refresh portfolio data
   const handleRefresh = () => {

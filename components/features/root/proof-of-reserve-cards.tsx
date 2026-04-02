@@ -39,13 +39,13 @@ export function ProofOfReserveCards() {
                 <div className="text-slate-600 text-sm">ETF Backing</div>
               </div>
               <div className="px-4 py-2 rounded-full text-sm font-bold bg-blue-100 text-blue-800">
-                LQD
+                SPY
               </div>
             </div>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-slate-600">Primary ETF</span>
-                <span className="font-semibold text-slate-900 text-xl">LQD</span>
+                <span className="font-semibold text-slate-900 text-xl">SPY</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-600">Custodian</span>

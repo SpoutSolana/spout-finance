@@ -25,12 +25,14 @@ import {
 } from "@/components/ui/select";
 import useKycStatus from "@/hooks/view/useVerificationStatus";
 import { PublicKey } from "@solana/web3.js";
-import useBuyAssetManual from "@/hooks/auth/solana/useBuyAsset";
-import useSellAssetManual from "@/hooks/auth/solana/useSellAsset";
 
 type TradeFormProps = {
   tradeType: "buy" | "sell";
   setTradeType: (type: "buy" | "sell") => void;
+  orderType: "market" | "limit";
+  setOrderType: (type: "market" | "limit") => void;
+  limitPrice: string;
+  setLimitPrice: (v: string) => void;
   selectedToken: string;
   setSelectedToken: (v: string) => void;
   tokens: { label: string; value: string }[];
@@ -62,6 +64,10 @@ type TradeFormProps = {
 function TradeForm({
   tradeType,
   setTradeType,
+  orderType,
+  setOrderType,
+  limitPrice,
+  setLimitPrice,
   selectedToken,
   setSelectedToken,
   tokens,
@@ -77,6 +83,7 @@ function TradeForm({
   usdcError,
   balanceLoading,
   isOrderPending: externalIsOrderPending,
+  handleBuy,
   handleSell,
   buyFeeUsdc,
   netReceiveTokens,
@@ -113,49 +120,8 @@ function TradeForm({
     }
   };
 
-  // Buy asset hook
-  const { buyManual, isSubmitting, error: buyError } = useBuyAssetManual();
-  const { sellManual, isSubmitting: isSelling, error: sellError } = useSellAssetManual();
-
-  // Compute what is actually pending
-  const isOrderPendingFinal = isSubmitting || externalIsOrderPending;
-
-  // Determine if buy button should be disabled
-  const isBuyDisabled = !buyUsdc || isSubmitting || isOrderPendingFinal || isKycVerified !== true || kycLoading;
-
-  // Buy handler
-  const handleBuy = async () => {
-    // Debug: prove click path
-    // eslint-disable-next-line no-console
-    console.log('handleBuy clicked', { isKycVerified, kycLoading, isSubmitting, buyUsdc, latestPrice });
-    if (isBuyDisabled) return;
-    if (!buyUsdc || !latestPrice || !selectedToken) return;
-    try {
-      await buyManual({
-        ticker: selectedToken,
-        usdcAmount: Math.round(Number(buyUsdc) * 1_000_000), // assuming form value is in human units
-        manualPrice: Math.round(Number(latestPrice) * 1_000_000),
-      });
-    } catch (e) {
-      // error is exposed via buyError; no-op here
-    }
-  };
-
-  // Sell handler
-  const handleSellClick = async () => {
-    // eslint-disable-next-line no-console
-    console.log('handleSell clicked', { isSelling, sellToken, latestPrice, selectedToken });
-    if (!sellToken || !latestPrice || !selectedToken || isSelling) return;
-    try {
-      await sellManual({
-        ticker: selectedToken,
-        assetAmount: Math.round(Number(sellToken) * 1_000_000),
-        manualPrice: Math.round(Number(latestPrice) * 1_000_000),
-      });
-    } catch (e) {
-      // error is surfaced via sellError
-    }
-  };
+  // Use the handlers passed from the trade page (usePlaceBuyOrder / usePlaceSellOrder)
+  const isBuyDisabled = !buyUsdc || externalIsOrderPending || isKycVerified !== true || kycLoading;
 
   // Display helper: balances are already human-formatted from hooks
   const displayTokenBalance = tokenBalance;
@@ -174,12 +140,12 @@ function TradeForm({
               )}
               <div>
                 <CardTitle className="text-xl">
-                  {tradeType === "buy" ? "Buy" : "Sell"} S{selectedToken}
+                  {tradeType === "buy" ? "Buy" : "Sell"} {selectedToken}
                 </CardTitle>
                 <CardDescription className="text-sm">
                   {tradeType === "buy"
-                    ? `Deposit USDC to receive S${selectedToken}`
-                    : `Sell S${selectedToken} for USDC`}
+                    ? `Deposit USDC to receive ${selectedToken}`
+                    : `Sell ${selectedToken} for USDC`}
                 </CardDescription>
               </div>
             </div>
@@ -187,7 +153,7 @@ function TradeForm({
               <div className="text-xs text-slate-500">
                 {tradeType === "buy"
                   ? "USDC Balance"
-                  : `S${selectedToken} Balance`}
+                  : `${selectedToken} Balance`}
               </div>
               <div
                 className={`font-bold text-base ${
@@ -202,14 +168,14 @@ function TradeForm({
                       : `${usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })} USDC`
                   : balanceLoading
                     ? "Loading..."
-                      : `${displayTokenBalance.toLocaleString()} S${selectedToken}`}
+                      : `${displayTokenBalance.toLocaleString()} ${selectedToken}`}
               </div>
               {/* Show secondary balance */}
               <div className="text-xs text-slate-400 mt-1">
                 {tradeType === "buy"
                   ? balanceLoading
                     ? "Loading..."
-                    : `${displayTokenBalance.toLocaleString()} S${selectedToken}`
+                    : `${displayTokenBalance.toLocaleString()} ${selectedToken}`
                   : usdcLoading
                     ? "Loading..."
                     : usdcError
@@ -318,6 +284,60 @@ function TradeForm({
             </div>
           </div>
 
+          {/* Order Type Toggle */}
+          <div className="mb-5">
+            <label className="block text-xs text-slate-500 mb-1">Order Type</label>
+            <div className="flex bg-slate-100 rounded-none p-0.5">
+              <button
+                type="button"
+                onClick={() => setOrderType("market")}
+                className={`flex-1 text-sm py-1.5 transition-all ${
+                  orderType === "market"
+                    ? "bg-white shadow-sm font-medium text-[#004040]"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Market
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderType("limit")}
+                className={`flex-1 text-sm py-1.5 transition-all ${
+                  orderType === "limit"
+                    ? "bg-white shadow-sm font-medium text-[#004040]"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                Limit
+              </button>
+            </div>
+          </div>
+
+          {/* Limit Price Input */}
+          {orderType === "limit" && (
+            <div className="mb-5">
+              <label className="block text-xs text-slate-500 mb-1">
+                Limit Price (USD)
+              </label>
+              <input
+                type="text"
+                value={limitPrice}
+                onChange={(e) => setLimitPrice(e.target.value)}
+                placeholder={latestPrice ? `e.g. ${latestPrice.toFixed(2)}` : "Enter price"}
+                className="border border-[#004040]/30 focus:border-[#004040] rounded-none px-4 py-2.5 w-full bg-white shadow-sm focus:outline-none transition"
+              />
+              {limitPrice && latestPrice && (
+                <p className="text-xs text-slate-400 mt-1">
+                  {parseFloat(limitPrice) > latestPrice
+                    ? `${((parseFloat(limitPrice) / latestPrice - 1) * 100).toFixed(2)}% above market`
+                    : parseFloat(limitPrice) < latestPrice
+                      ? `${((1 - parseFloat(limitPrice) / latestPrice) * 100).toFixed(2)}% below market`
+                      : "At market price"}
+                </p>
+              )}
+            </div>
+          )}
+
           {tradeType === "buy" ? (
             <>
               <div className="mb-4">
@@ -339,12 +359,23 @@ function TradeForm({
                   <div className="p-4 rounded-none bg-[#f5faf9] border border-[#004040]/15">
                     <div className="text-sm text-[#004040] mb-3 font-medium">
                       Transaction Summary
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 ${orderType === "limit" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                        {orderType === "limit" ? "Limit Order" : "Market Order"}
+                      </span>
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">You pay:</span>
                         <span className="font-semibold">{buyUsdc} USDC</span>
                       </div>
+                      {orderType === "limit" && limitPrice && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Limit price:</span>
+                          <span className="font-semibold text-amber-700">
+                            ${parseFloat(limitPrice).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">
                           Trading fee (0.25%):
@@ -358,13 +389,13 @@ function TradeForm({
                           You receive (est.):
                         </span>
                         <span className="font-bold text-[#004040]">
-                          {netReceiveTokens} S{selectedToken}
+                          {netReceiveTokens} {selectedToken}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Rate:</span>
                         <span className="font-semibold">
-                          1 S{selectedToken} = ${latestPrice.toFixed(2)}
+                          1 {selectedToken} = ${latestPrice.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -376,7 +407,7 @@ function TradeForm({
                       <div className="flex justify-between">
                         <span>Max slippage (1%):</span>
                         <span className="font-semibold">
-                          {(parseFloat(netReceiveTokens) * 0.99).toFixed(4)} S
+                          {(parseFloat(netReceiveTokens) * 0.99).toFixed(4)}{" "}
                           {selectedToken}
                         </span>
                       </div>
@@ -421,7 +452,7 @@ function TradeForm({
                 onClick={handleBuy}
                 isDisabled={isBuyDisabled}
               >
-                {isOrderPendingFinal ? (
+                {externalIsOrderPending ? (
                   <>
                     <LoadingSpinner />
                     {"Processing..."}
@@ -429,24 +460,21 @@ function TradeForm({
                 ) : isKycVerified === false && !kycLoading ? (
                   "KYC Required"
                 ) : (
-                  `Buy S${selectedToken}`
+                  orderType === "limit" ? `Place Limit Buy ${selectedToken}` : `Buy ${selectedToken}`
                 )}
               </Button>
-              {buyError && (
-                <div className="mt-2 text-xs text-red-600 break-all">{buyError}</div>
-              )}
             </>
           ) : (
             <>
               <div className="mb-4">
                 <label className="block text-sm text-slate-600 mb-2">
-                  S{selectedToken} Amount
+                  {selectedToken} Amount
                 </label>
                 <input
                   type="text"
                   value={sellToken}
                   onChange={(e) => setSellToken(e.target.value)}
-                  placeholder={`Enter S${selectedToken} amount`}
+                  placeholder={`Enter ${selectedToken} amount`}
                   className="border border-[#004040]/30 focus:border-[#004040] rounded-none px-4 py-3 w-full bg-white shadow-sm focus:outline-none transition text-lg"
                 />
               </div>
@@ -457,14 +485,25 @@ function TradeForm({
                   <div className="p-4 rounded-none bg-[#f5faf9] border border-[#004040]/15">
                     <div className="text-sm text-[#004040] mb-3 font-medium">
                       Transaction Summary
+                      <span className={`ml-2 text-xs px-1.5 py-0.5 ${orderType === "limit" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>
+                        {orderType === "limit" ? "Limit Order" : "Market Order"}
+                      </span>
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">You sell:</span>
                         <span className="font-semibold">
-                          {sellToken} S{selectedToken}
+                          {sellToken} {selectedToken}
                         </span>
                       </div>
+                      {orderType === "limit" && limitPrice && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-600">Limit price:</span>
+                          <span className="font-semibold text-amber-700">
+                            ${parseFloat(limitPrice).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Gross amount:</span>
                         <span className="font-semibold">
@@ -490,7 +529,7 @@ function TradeForm({
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-600">Rate:</span>
                         <span className="font-semibold">
-                          1 S{selectedToken} = ${latestPrice.toFixed(2)}
+                          1 {selectedToken} = ${latestPrice.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -522,21 +561,18 @@ function TradeForm({
 
               <Button
                 className="w-full mt-4 font-semibold text-lg py-3 bg-[#004040] hover:bg-[#004040]"
-                onClick={handleSellClick}
-                isDisabled={!sellToken || isSelling}
+                onClick={handleSell}
+                isDisabled={!sellToken || externalIsOrderPending}
               >
-                {isSelling ? (
+                {externalIsOrderPending ? (
                   <>
                     <LoadingSpinner />
                     {"Processing..."}
                   </>
                 ) : (
-                  `Sell S${selectedToken}`
+                  orderType === "limit" ? `Place Limit Sell ${selectedToken}` : `Sell ${selectedToken}`
                 )}
               </Button>
-              {sellError && (
-                <div className="mt-2 text-xs text-red-600 break-all">{sellError}</div>
-              )}
             </>
           )}
         </CardContent>

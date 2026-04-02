@@ -14,17 +14,55 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 const CustomConnectButton = () => {
   // const { checkAndSwitchNetwork } = useNetwork();
-  const { connected, publicKey, disconnect, connecting } = useWallet();
-  const { setVisible } = useWalletModal();
+  const { connected, publicKey, disconnect, connecting, wallet, select, wallets } = useWallet();
+  const { setVisible, visible } = useWalletModal();
 
-  // Automatically switch to Pharos when wallet connects
-  // useEffect(() => {
-  //   if (isConnected) {
-  //     checkAndSwitchNetwork().catch((error: Error) => {
-  //       console.error("Failed to switch network in connect button:", error);
-  //     });
-  //   }
-  // }, [isConnected, checkAndSwitchNetwork]);
+  // Debug: log wallet adapter state changes
+  useEffect(() => {
+    console.log("[wallet] state changed:", {
+      connected,
+      connecting,
+      publicKey: publicKey?.toBase58() ?? null,
+      walletName: wallet?.adapter?.name ?? null,
+      walletReady: wallet?.adapter?.readyState ?? null,
+      modalVisible: visible,
+    });
+  }, [connected, connecting, publicKey, wallet, visible]);
+
+  // Debug: log all detected wallets on mount
+  useEffect(() => {
+    console.log("[wallet] detected wallets:", wallets.map(w => ({
+      name: w.adapter.name,
+      readyState: w.adapter.readyState,
+      connected: w.adapter.connected,
+    })));
+  }, [wallets]);
+
+  // Debug: listen to wallet adapter events when a wallet is selected
+  useEffect(() => {
+    if (!wallet) return;
+    const adapter = wallet.adapter;
+
+    const onConnect = () => console.log("[wallet] adapter 'connect' event fired, publicKey:", adapter.publicKey?.toBase58());
+    const onDisconnect = () => console.log("[wallet] adapter 'disconnect' event fired");
+    const onError = (err: Error) => console.error("[wallet] adapter 'error' event:", err);
+    const onReadyChange = (readyState: any) => console.log("[wallet] adapter readyStateChange:", readyState);
+
+    adapter.on("connect", onConnect);
+    adapter.on("disconnect", onDisconnect);
+    adapter.on("error", onError);
+    adapter.on("readyStateChange", onReadyChange);
+
+    console.log("[wallet] attached listeners to adapter:", adapter.name, "readyState:", adapter.readyState);
+
+    return () => {
+      adapter.off("connect", onConnect);
+      adapter.off("disconnect", onDisconnect);
+      adapter.off("error", onError);
+      adapter.off("readyStateChange", onReadyChange);
+    };
+  }, [wallet]);
+
   const copyAddress = (address: string) => {
     navigator.clipboard.writeText(address);
   };

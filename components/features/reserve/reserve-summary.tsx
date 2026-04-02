@@ -60,7 +60,7 @@ export function ReserveSummary({
               <span className="text-gray-400">Loading...</span>
             ) : (
               <>
-                {formatNumber(totalSupply)} LQD @ $
+                {formatNumber(totalSupply)} SPY @ $
                 {currentPrice?.toFixed(2) || "0.00"}
               </>
             )}
@@ -103,7 +103,7 @@ export function ReserveSummary({
               {isDataLoading ? (
                 <span className="text-gray-400">Loading...</span>
               ) : (
-                `${formatNumber(totalSupply)} LQD`
+                `${formatNumber(totalSupply)} SPY`
               )}
             </span>
           </div>
