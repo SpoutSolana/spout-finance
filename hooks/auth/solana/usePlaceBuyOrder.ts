@@ -16,18 +16,19 @@ import {
   SPOUT_ORDERS_PROGRAM_ID,
   USDC_MINT,
   FEED_ID_SPY,
-  CHAINLINK_VERIFIER_PROGRAM,
-  CHAINLINK_ACCESS_CONTROLLER,
+  // CHAINLINK_VERIFIER_PROGRAM,
+  // CHAINLINK_ACCESS_CONTROLLER,
   deriveOrderConfig,
   deriveOracleConfig,
   deriveUsdcEscrow,
   deriveOrdersAuthority,
   derivePendingOrder,
   deriveIdentity,
-  deriveVerifierConfig,
-  deriveReportConfig,
+  // deriveVerifierConfig,
+  // deriveReportConfig,
 } from "@/lib/solana/spoutOrders";
-import { fetchChainlinkReport } from "@/lib/solana/fetchChainlinkReport";
+// import { fetchChainlinkReport } from "@/lib/solana/fetchChainlinkReport";
+import { buildMockReportV11 } from "@/lib/solana/buildMockReport";
 
 // IDL discriminator for place_buy_order
 const PLACE_BUY_ORDER_DISCRIMINATOR = Buffer.from([
@@ -139,39 +140,37 @@ export function usePlaceBuyOrder(): UsePlaceBuyOrderResult {
         const [pendingOrderPda] = derivePendingOrder(publicKey, orderId);
         const [identityPda, identityBump] = deriveIdentity(publicKey);
 
-        // --- 3. Fetch real Chainlink Data Streams signed report ---
-        const feedId = args.feedId ?? FEED_ID_SPY;
-        console.log("Fetching Chainlink signed report...");
-        const report = await fetchChainlinkReport(feedId);
-        console.log(
-          `  Report: ${report.fullReportLength}b -> ${report.compressedLength}b compressed, market: ${report.marketStatus}`
-        );
+        // --- 3. Build mock signed report (V11) ---
+        const feedIdHex = (args.feedId ?? FEED_ID_SPY).replace("0x", "");
+        const feedIdBuf = Buffer.from(feedIdHex, "hex");
+        // Use limit price if set, otherwise default to $655 (current SPY range)
+        const mockPrice = args.limitPrice
+          ? BigInt(args.limitPrice)
+          : BigInt("655000000000000000000");
+        const mockReport = buildMockReportV11(feedIdBuf, mockPrice);
+        console.log("Built mock report V11:", mockReport.length, "bytes, price:", mockPrice.toString());
 
-        // --- 4. Derive Chainlink Verifier PDAs ---
-        const [verifierConfigPda] = deriveVerifierConfig();
-        const [reportConfigPda] = deriveReportConfig(report.reportConfigSeed);
-
-        // --- 5. User USDC ATA ---
+        // --- 4. User USDC ATA ---
         const userUsdcAta = getAssociatedTokenAddressSync(USDC_MINT, publicKey);
 
-        // --- 6. Serialize instruction data (matches IDL exactly) ---
+        // --- 5. Serialize instruction data (matches IDL exactly) ---
         const instructionData = serializeBuyOrderData(
           orderId,
           args.ticker,
           BigInt(args.usdcAmount),
           BigInt(args.limitPrice ?? 0),
           identityBump,
-          report.compressedReport
+          mockReport
         );
 
-        // --- 7. Accounts array (matches IDL place_buy_order exactly) ---
+        // --- 6. Accounts array (mock mode — pass SystemProgram for Chainlink accounts) ---
         const keys = [
           { pubkey: orderConfigPda, isSigner: false, isWritable: false },              // order_config
           { pubkey: oracleConfigPda, isSigner: false, isWritable: false },             // oracle_config
-          { pubkey: CHAINLINK_VERIFIER_PROGRAM, isSigner: false, isWritable: false },  // chainlink_verifier_program
-          { pubkey: verifierConfigPda, isSigner: false, isWritable: false },           // verifier_config_pda
-          { pubkey: CHAINLINK_ACCESS_CONTROLLER, isSigner: false, isWritable: false }, // access_controller
-          { pubkey: reportConfigPda, isSigner: false, isWritable: false },             // report_config_pda
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // chainlink_verifier_program (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // verifier_config_pda (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // access_controller (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // report_config_pda (mock)
           { pubkey: pendingOrderPda, isSigner: false, isWritable: true },              // pending_order
           { pubkey: userUsdcAta, isSigner: false, isWritable: true },                  // user_usdc_account
           { pubkey: usdcEscrowPda, isSigner: false, isWritable: true },                // usdc_escrow

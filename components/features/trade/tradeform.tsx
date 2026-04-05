@@ -120,11 +120,18 @@ function TradeForm({
     }
   };
 
+  // Calculate total cost for buy orders
+  const isLimitBuy = orderType === "limit" && !!limitPrice;
+  const buyCost = isLimitBuy
+    ? (buyUsdc ? parseFloat(buyUsdc) * parseFloat(limitPrice) : 0)
+    : (buyUsdc ? parseFloat(buyUsdc) : 0);
+  const insufficientBalance = buyUsdc && buyCost > usdcBalance;
+
   // Use the handlers passed from the trade page (usePlaceBuyOrder / usePlaceSellOrder)
-  const isBuyDisabled = !buyUsdc || externalIsOrderPending || isKycVerified !== true || kycLoading;
+  const isBuyDisabled = !buyUsdc || externalIsOrderPending || isKycVerified !== true || kycLoading || !!insufficientBalance;
 
   // Display helper: balances are already human-formatted from hooks
-  const displayTokenBalance = tokenBalance;
+  const displayTokenBalance = tokenBalance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 9 });
 
   return (
     <div className="w-full max-w-xl mx-auto">
@@ -168,14 +175,14 @@ function TradeForm({
                       : `${usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })} USDC`
                   : balanceLoading
                     ? "Loading..."
-                      : `${displayTokenBalance.toLocaleString()} ${selectedToken}`}
+                      : `${displayTokenBalance} ${selectedToken}`}
               </div>
               {/* Show secondary balance */}
               <div className="text-xs text-slate-400 mt-1">
                 {tradeType === "buy"
                   ? balanceLoading
                     ? "Loading..."
-                    : `${displayTokenBalance.toLocaleString()} ${selectedToken}`
+                    : `${displayTokenBalance} ${selectedToken}`
                   : usdcLoading
                     ? "Loading..."
                     : usdcError
@@ -341,16 +348,63 @@ function TradeForm({
           {tradeType === "buy" ? (
             <>
               <div className="mb-4">
-                <label className="block text-sm text-slate-600 mb-2">
-                  USDC Amount
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm text-slate-600">
+                    {orderType === "limit" ? "Shares" : "USDC Amount"}
+                  </label>
+                  {orderType === "limit" && limitPrice && parseFloat(limitPrice) > 0 && (
+                    <span className="text-xs text-slate-400">
+                      Max: {(Math.floor((usdcBalance / parseFloat(limitPrice)) * 1e6) / 1e6).toFixed(6)} shares
+                    </span>
+                  )}
+                  {orderType === "market" && (
+                    <button
+                      type="button"
+                      onClick={() => setBuyUsdc(String(usdcBalance))}
+                      className="text-xs font-medium text-[#004040] hover:underline"
+                    >
+                      Max
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={buyUsdc}
                   onChange={(e) => setBuyUsdc(e.target.value)}
-                  placeholder="Enter USDC amount"
+                  placeholder={orderType === "limit" ? "Enter number of shares" : "Enter USDC amount"}
                   className="border border-[#004040]/30 focus:border-[#004040] rounded-none px-4 py-3 w-full bg-white shadow-sm focus:outline-none transition text-lg"
                 />
+                {orderType === "limit" && limitPrice && parseFloat(limitPrice) > 0 && (
+                  <>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={buyUsdc && parseFloat(limitPrice) > 0
+                        ? Math.min(100, Math.round((parseFloat(buyUsdc) / (usdcBalance / parseFloat(limitPrice))) * 100))
+                        : 0}
+                      onChange={(e) => {
+                        const pct = parseInt(e.target.value);
+                        const maxShares = usdcBalance / parseFloat(limitPrice);
+                        const shares = Math.floor((pct / 100) * maxShares * 1e6) / 1e6;
+                        setBuyUsdc(shares > 0 ? shares.toFixed(6) : "");
+                      }}
+                      className="w-full mt-2 accent-[#004040] h-1.5 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                      <span>0%</span>
+                      <span>25%</span>
+                      <span>50%</span>
+                      <span>75%</span>
+                      <span>100%</span>
+                    </div>
+                    {buyUsdc && (
+                      <p className="text-xs text-slate-400 mt-1">
+                        Estimated cost: ${(Math.floor(parseFloat(buyUsdc) * parseFloat(limitPrice) * 100) / 100).toFixed(2)} USDC
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
               {buyUsdc && latestPrice && latestPrice > 0 && (
@@ -364,40 +418,63 @@ function TradeForm({
                       </span>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">You pay:</span>
-                        <span className="font-semibold">{buyUsdc} USDC</span>
-                      </div>
-                      {orderType === "limit" && limitPrice && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Limit price:</span>
-                          <span className="font-semibold text-amber-700">
-                            ${parseFloat(limitPrice).toFixed(2)}
-                          </span>
-                        </div>
+                      {orderType === "limit" && limitPrice ? (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Shares:</span>
+                            <span className="font-semibold">{buyUsdc} {selectedToken}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Limit price:</span>
+                            <span className="font-semibold text-amber-700">
+                              ${parseFloat(limitPrice).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Total cost:</span>
+                            <span className="font-semibold">
+                              ${(Math.floor(parseFloat(buyUsdc) * parseFloat(limitPrice) * 100) / 100).toFixed(2)} USDC
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Trading fee (0.25%):</span>
+                            <span className="font-semibold text-orange-600">
+                              -{buyFeeUsdc} USDC
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">You receive (est.):</span>
+                            <span className="font-bold text-[#004040]">
+                              {netReceiveTokens} {selectedToken}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">You pay:</span>
+                            <span className="font-semibold">{buyUsdc} USDC</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Trading fee (0.25%):</span>
+                            <span className="font-semibold text-orange-600">
+                              -{buyFeeUsdc} USDC
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">You receive (est.):</span>
+                            <span className="font-bold text-[#004040]">
+                              {netReceiveTokens} {selectedToken}
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600">Rate:</span>
+                            <span className="font-semibold">
+                              1 {selectedToken} = ${latestPrice.toFixed(2)}
+                            </span>
+                          </div>
+                        </>
                       )}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">
-                          Trading fee (0.25%):
-                        </span>
-                        <span className="font-semibold text-orange-600">
-                          -{buyFeeUsdc} USDC
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">
-                          You receive (est.):
-                        </span>
-                        <span className="font-bold text-[#004040]">
-                          {netReceiveTokens} {selectedToken}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-slate-600">Rate:</span>
-                        <span className="font-semibold">
-                          1 {selectedToken} = ${latestPrice.toFixed(2)}
-                        </span>
-                      </div>
                     </div>
                   </div>
 
@@ -423,6 +500,15 @@ function TradeForm({
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Insufficient balance warning */}
+              {insufficientBalance && (
+                <div className="mb-4 p-3 rounded-none bg-red-50 border border-red-200">
+                  <p className="text-xs text-red-700">
+                    Insufficient USDC balance. You need ${buyCost.toFixed(2)} USDC but only have {usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 3, maximumFractionDigits: 3 })} USDC.
+                  </p>
                 </div>
               )}
 
@@ -457,6 +543,8 @@ function TradeForm({
                     <LoadingSpinner />
                     {"Processing..."}
                   </>
+                ) : insufficientBalance ? (
+                  "Insufficient USDC Balance"
                 ) : isKycVerified === false && !kycLoading ? (
                   "KYC Required"
                 ) : (
@@ -467,9 +555,18 @@ function TradeForm({
           ) : (
             <>
               <div className="mb-4">
-                <label className="block text-sm text-slate-600 mb-2">
-                  {selectedToken} Amount
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm text-slate-600">
+                    {selectedToken} Amount
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSellToken(String(tokenBalance))}
+                    className="text-xs font-medium text-[#004040] hover:underline"
+                  >
+                    Sell All
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={sellToken}

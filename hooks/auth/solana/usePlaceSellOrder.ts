@@ -10,17 +10,18 @@ import {
 import {
   SPOUT_ORDERS_PROGRAM_ID,
   FEED_ID_SPY,
-  CHAINLINK_VERIFIER_PROGRAM,
-  CHAINLINK_ACCESS_CONTROLLER,
+  // CHAINLINK_VERIFIER_PROGRAM,
+  // CHAINLINK_ACCESS_CONTROLLER,
   deriveOrderConfig,
   deriveOracleConfig,
   deriveOrdersAuthority,
   derivePendingOrder,
   deriveIdentity,
-  deriveVerifierConfig,
-  deriveReportConfig,
+  // deriveVerifierConfig,
+  // deriveReportConfig,
 } from "@/lib/solana/spoutOrders";
-import { fetchChainlinkReport } from "@/lib/solana/fetchChainlinkReport";
+// import { fetchChainlinkReport } from "@/lib/solana/fetchChainlinkReport";
+import { buildMockReportV11 } from "@/lib/solana/buildMockReport";
 
 // IDL discriminator for place_sell_order
 const PLACE_SELL_ORDER_DISCRIMINATOR = Buffer.from([
@@ -128,36 +129,33 @@ export function usePlaceSellOrder(): UsePlaceSellOrderResult {
         const [pendingOrderPda] = derivePendingOrder(publicKey, orderId);
         const [identityPda, identityBump] = deriveIdentity(publicKey);
 
-        // --- 3. Fetch real Chainlink Data Streams signed report ---
-        const feedId = args.feedId ?? FEED_ID_SPY;
-        console.log("Fetching Chainlink signed report...");
-        const report = await fetchChainlinkReport(feedId);
-        console.log(
-          `  Report: ${report.fullReportLength}b -> ${report.compressedLength}b compressed, market: ${report.marketStatus}`
-        );
+        // --- 3. Build mock signed report (V11) ---
+        const feedIdHex = (args.feedId ?? FEED_ID_SPY).replace("0x", "");
+        const feedIdBuf = Buffer.from(feedIdHex, "hex");
+        const mockPrice = args.limitPrice
+          ? BigInt(args.limitPrice)
+          : BigInt("655000000000000000000");
+        const mockReport = buildMockReportV11(feedIdBuf, mockPrice);
+        console.log("Built mock report V11:", mockReport.length, "bytes, price:", mockPrice.toString());
 
-        // --- 4. Derive Chainlink Verifier PDAs ---
-        const [verifierConfigPda] = deriveVerifierConfig();
-        const [reportConfigPda] = deriveReportConfig(report.reportConfigSeed);
-
-        // --- 5. Serialize instruction data (matches IDL exactly) ---
+        // --- 4. Serialize instruction data (matches IDL exactly) ---
         const instructionData = serializeSellOrderData(
           orderId,
           args.ticker,
           BigInt(args.assetAmount),
           BigInt(args.limitPrice ?? 0),
           identityBump,
-          report.compressedReport
+          mockReport
         );
 
-        // --- 6. Accounts array (matches IDL place_sell_order exactly) ---
+        // --- 5. Accounts array (mock mode — pass SystemProgram for Chainlink accounts) ---
         const keys = [
           { pubkey: orderConfigPda, isSigner: false, isWritable: false },              // order_config
           { pubkey: oracleConfigPda, isSigner: false, isWritable: false },             // oracle_config
-          { pubkey: CHAINLINK_VERIFIER_PROGRAM, isSigner: false, isWritable: false },  // chainlink_verifier_program
-          { pubkey: verifierConfigPda, isSigner: false, isWritable: false },           // verifier_config_pda
-          { pubkey: CHAINLINK_ACCESS_CONTROLLER, isSigner: false, isWritable: false }, // access_controller
-          { pubkey: reportConfigPda, isSigner: false, isWritable: false },             // report_config_pda
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // chainlink_verifier_program (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // verifier_config_pda (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // access_controller (mock)
+          { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },     // report_config_pda (mock)
           { pubkey: pendingOrderPda, isSigner: false, isWritable: true },              // pending_order
           { pubkey: identityPda, isSigner: false, isWritable: false },                 // identity
           { pubkey: publicKey, isSigner: true, isWritable: false },                    // user

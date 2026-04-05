@@ -9,7 +9,6 @@ import { useMarketData } from "@/hooks/api/useMarketData";
 import { useChainlinkPrice } from "@/hooks/api/useChainlinkPrice";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useBalanceUSDC } from "@/hooks/view/useBalanceUSDC";
-import { useBalanceToken } from "@/hooks/view/useBalanceToken";
 import { PublicKey } from "@solana/web3.js";
 import { toPk } from "@/helpers/publicKeyConverter";
 import { usePlaceBuyOrder } from "@/hooks/auth/solana/usePlaceBuyOrder";
@@ -18,6 +17,8 @@ import {
   placeAlpacaOrder,
 } from "@/hooks/api/useAlpacaOrders";
 import { useBackendOrders, cancelBackendOrder } from "@/hooks/api/useBackendOrders";
+import { useMarketStatus } from "@/hooks/view/useMarketStatus";
+import { useAlpacaPositions } from "@/hooks/api/useAlpacaPositions";
 
 const MINTS: Record<string, PublicKey | null> = {
   SPY: toPk("8yHaFSWNAfZ8um8x1dxxb6dMf3H1DH29tsZCFoTy7QZ"),
@@ -68,21 +69,26 @@ const TradePage = () => {
   const ownerPk = useMemo(() => publicKey ?? null, [publicKey]);
   const tokenMint = useMemo(() => MINTS[selectedToken] ?? null, [selectedToken]);
   const usdcMint = useMemo(() => USDC_MINT, []);
-  const tokenBal = useBalanceToken(tokenMint, ownerPk);
   const usdcBal = useBalanceUSDC(usdcMint, ownerPk);
 
-  // Derived balances for UI
-  const tokenBalance = tokenBal.amountUi ? parseFloat(tokenBal.amountUi) : 0;
-  const balanceLoading = Boolean(tokenBal.isLoading);
+  // Alpaca positions (live broker account)
+  const { getQty: getAlpacaQty, isLoading: alpacaPositionsLoading, refetch: refetchAlpacaPositions } = useAlpacaPositions(selectedToken);
+
+  // Derived balances for UI — token balance from Alpaca, USDC from on-chain
+  const tokenBalance = getAlpacaQty(selectedToken);
+  const balanceLoading = alpacaPositionsLoading;
   const usdcBalance = usdcBal.amountUi ? parseFloat(usdcBal.amountUi) : 0;
   const usdcLoading = Boolean(usdcBal.isLoading);
   const usdcError = Boolean(usdcBal.error);
-  const refetchTokenBalance = tokenBal.refetch;
+  const refetchTokenBalance = refetchAlpacaPositions;
   const refetchUSDCBalance = usdcBal.refetch;
 
   // Removed useEffect that auto-triggered balance refetch
 
-  const tokenDecimals = 6; // SPY Token-2022 uses 6 decimals
+  const tokenDecimals = 6; // SPY token uses 6 decimals for on-chain amounts
+
+  // US market status
+  const marketStatus = useMarketStatus();
 
   // SpoutOrders on-chain hooks
   const { placeBuyOrder, isSubmitting: isBuySubmitting } = usePlaceBuyOrder();
@@ -186,16 +192,24 @@ const TradePage = () => {
       : 0;
 
   const tradingFee = 0.0025;
+  const isLimitBuy = orderType === "limit" && !!limitPrice;
+  // For limit buy: buyUsdc = shares, cost = shares * limitPrice
+  // For market buy: buyUsdc = USDC amount, tokens = usdc / price
+  const buyUsdcCost = isLimitBuy
+    ? (buyUsdc ? parseFloat(buyUsdc) * parseFloat(limitPrice) : 0)
+    : (buyUsdc ? parseFloat(buyUsdc) : 0);
   const estimatedTokens =
     buyUsdc && latestPrice
-      ? (parseFloat(buyUsdc) / latestPrice).toFixed(4)
+      ? isLimitBuy
+        ? parseFloat(buyUsdc).toFixed(4)
+        : (parseFloat(buyUsdc) / latestPrice).toFixed(4)
       : "";
   const estimatedUsdc =
     sellToken && latestPrice
       ? (parseFloat(sellToken) * latestPrice).toFixed(2)
       : "";
-  const buyFeeUsdc = buyUsdc
-    ? (parseFloat(buyUsdc) * tradingFee).toFixed(2)
+  const buyFeeUsdc = buyUsdcCost > 0
+    ? (buyUsdcCost * tradingFee).toFixed(2)
     : "";
   const sellFeeUsdc = estimatedUsdc
     ? (parseFloat(estimatedUsdc) * tradingFee).toFixed(2)
@@ -210,7 +224,24 @@ const TradePage = () => {
 
   const handleBuy = async () => {
     if (!userAddress || !buyUsdc || !latestPrice || !tokenMint) return;
-    const usdcAmountNum = parseFloat(buyUsdc);
+
+    // if (!marketStatus.isOpen) {
+    //   setTransactionModal({
+    //     isOpen: true,
+    //     status: "failed",
+    //     transactionType: "buy",
+    //     amount: `${buyUsdc} USDC`,
+    //     receivedAmount: "",
+    //     error: `US market is currently ${marketStatus.label.toLowerCase()}. ${marketStatus.nextEvent}.`,
+    //   });
+    //   return;
+    // }
+
+    // For limit orders, buyUsdc is shares (qty); for market orders, it's USDC amount
+    const inputNum = parseFloat(buyUsdc);
+    const isLimit = orderType === "limit" && limitPrice;
+    const usdcAmountNum = isLimit ? inputNum * parseFloat(limitPrice) : inputNum;
+    const qtyNum = isLimit ? inputNum : (latestPrice ? inputNum / latestPrice : 0);
     const usdcSmallestUnits = Math.floor(usdcAmountNum * 1e6); // USDC has 6 decimals
 
     // Show transaction modal
@@ -218,15 +249,15 @@ const TradePage = () => {
       isOpen: true,
       status: "waiting",
       transactionType: "buy",
-      amount: `${buyUsdc} USDC`,
-      receivedAmount: displayNetReceiveTokens,
+      amount: isLimit ? `${buyUsdc} ${selectedToken}` : `${buyUsdc} USDC`,
+      receivedAmount: isLimit ? `$${usdcAmountNum.toFixed(2)}` : displayNetReceiveTokens,
       error: "",
     });
 
     try {
       // Convert limit price to 18-decimal u128 (matching oracle price_decimals)
       // 0 = market order
-      const limitPriceU128 = orderType === "limit" && limitPrice
+      const limitPriceU128 = isLimit
         ? Math.floor(parseFloat(limitPrice) * 1e18)
         : 0;
 
@@ -235,6 +266,7 @@ const TradePage = () => {
         limitPrice,
         limitPriceU128,
         usdcSmallestUnits,
+        qtyNum,
         selectedToken,
       });
 
@@ -254,8 +286,11 @@ const TradePage = () => {
           side: "buy",
           type: orderType === "limit" ? "limit" : "market",
           time_in_force: orderType === "limit" ? "gtc" : "day",
-          notional: usdcAmountNum,
-          limit_price: orderType === "limit" && limitPrice ? parseFloat(limitPrice) : undefined,
+          // Limit orders use qty (shares); market orders use notional (dollar amount)
+          ...(isLimit
+            ? { qty: qtyNum }
+            : { notional: usdcAmountNum }),
+          limit_price: isLimit ? parseFloat(limitPrice) : undefined,
           client_order_id: orderId.toString(),
         });
         console.log("Alpaca order placed, id:", alpacaOrder.id, "status:", alpacaOrder.status);
@@ -293,9 +328,11 @@ const TradePage = () => {
       return;
     }
 
-    // Convert to smallest units using token decimals
-    const pow = Math.pow(10, tokenDecimals || 6);
-    const assetSmallestUnits = Math.floor(sellTokenAmount * pow);
+    // Convert to smallest units using token decimals, preserving full precision
+    const decimals = tokenDecimals || 9;
+    const [whole, frac = ""] = sellToken.split(".");
+    const paddedFrac = frac.padEnd(decimals, "0").slice(0, decimals);
+    const assetSmallestUnits = Number(whole + paddedFrac);
 
     // Show transaction modal
     setTransactionModal({
